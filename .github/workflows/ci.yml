@@ -1,0 +1,150 @@
+# GitHub Actions CI Workflow for WeatherHabitTracker
+# This workflow builds and tests the iOS app on every push and pull request
+
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+# Environment variables
+env:
+  DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+  SCHEME: WeatherHabitTracker
+  DESTINATION: 'platform=iOS Simulator,name=iPhone 15 Pro,OS=latest'
+
+jobs:
+  # Build and Test Job
+  build-and-test:
+    name: Build and Test
+    runs-on: macos-latest
+    
+    steps:
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # Setup Xcode version
+      - name: Select Xcode
+        run: sudo xcode-select -switch /Applications/Xcode.app
+      
+      # Show Xcode version for debugging
+      - name: Show Xcode version
+        run: xcodebuild -version
+      
+      # List available simulators
+      - name: List available simulators
+        run: xcrun simctl list devices available
+      
+      # Cache Swift Package Manager dependencies
+      - name: Cache SPM
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            ~/Library/Developer/Xcode/DerivedData
+          key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+      
+      # Build the project
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project WeatherHabitTracker.xcodeproj \
+            -scheme $SCHEME \
+            -destination "$DESTINATION" \
+            -configuration Debug \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty --color --simple
+      
+      # Run unit tests
+      - name: Run Unit Tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project WeatherHabitTracker.xcodeproj \
+            -scheme $SCHEME \
+            -destination "$DESTINATION" \
+            -configuration Debug \
+            -enableCodeCoverage YES \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty --color --test
+      
+      # Run UI tests
+      - name: Run UI Tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project WeatherHabitTracker.xcodeproj \
+            -scheme WeatherHabitTrackerUITests \
+            -destination "$DESTINATION" \
+            -configuration Debug \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty --color --test
+        continue-on-error: true
+      
+      # Upload test results
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: test-results
+          path: |
+            ~/Library/Developer/Xcode/DerivedData/**/Logs/Test/*.xcresult
+          retention-days: 5
+
+  # SwiftLint Job (optional but recommended)
+  lint:
+    name: Swift Lint
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install SwiftLint
+        run: brew install swiftlint || true
+      
+      - name: Run SwiftLint
+        run: swiftlint lint --reporter github-actions-logging
+        continue-on-error: true
+
+  # Build for Release (only on main branch)
+  build-release:
+    name: Build Release
+    runs-on: macos-latest
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Select Xcode
+        run: sudo xcode-select -switch /Applications/Xcode.app
+      
+      - name: Build Release
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project WeatherHabitTracker.xcodeproj \
+            -scheme $SCHEME \
+            -destination "$DESTINATION" \
+            -configuration Release \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty --color --simple
+      
+      - name: Archive Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-build
+          path: ~/Library/Developer/Xcode/DerivedData/**/Build/Products/Release-iphonesimulator
+          retention-days: 7

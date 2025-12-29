@@ -1,0 +1,36 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceRoot}/<your program>",
+            "args": [],
+            "cwd": "${workspaceRoot}"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:WeatherHabitTracker}",
+            "name": "Debug WeatherHabitTracker",
+            "target": "WeatherHabitTracker",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug WeatherHabitTracker"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:WeatherHabitTracker}",
+            "name": "Release WeatherHabitTracker",
+            "target": "WeatherHabitTracker",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release WeatherHabitTracker"
+        }
+    ]
+}
