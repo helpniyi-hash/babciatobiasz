@@ -46,6 +46,7 @@ struct NativeGlassButtonStyle: ButtonStyle {
     var isProminent: Bool = false
     
     func makeBody(configuration: Configuration) -> some View {
+        #if compiler(>=6.1)
         if #available(iOS 26.0, macOS 26.0, *) {
             configuration.label
                 .padding(.horizontal, 24)
@@ -54,13 +55,21 @@ struct NativeGlassButtonStyle: ButtonStyle {
                 .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
                 .animation(.spring(response: 0.3), value: configuration.isPressed)
         } else {
-            configuration.label
-                .padding(.horizontal, 24)
-                .padding(.vertical, 12)
-                .background(.ultraThinMaterial, in: Capsule())
-                .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-                .animation(.spring(response: 0.3), value: configuration.isPressed)
+            fallbackButton(configuration)
         }
+        #else
+        fallbackButton(configuration)
+        #endif
+    }
+    
+    @ViewBuilder
+    private func fallbackButton(_ configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(.ultraThinMaterial, in: Capsule())
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .animation(.spring(response: 0.3), value: configuration.isPressed)
     }
 }
 
@@ -74,6 +83,7 @@ struct GlassButtonStyle: ButtonStyle {
     var isProminent: Bool = false
     
     func makeBody(configuration: Configuration) -> some View {
+        #if compiler(>=6.1)
         if #available(iOS 26.0, macOS 26.0, *) {
             configuration.label
                 .padding(.horizontal, 24)
@@ -82,15 +92,23 @@ struct GlassButtonStyle: ButtonStyle {
                 .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
                 .animation(.spring(response: 0.3), value: configuration.isPressed)
         } else {
-            configuration.label
-                .padding(.horizontal, 24)
-                .padding(.vertical, 12)
-                .background(isProminent ? AnyShapeStyle(color.gradient) : AnyShapeStyle(.ultraThinMaterial))
-                .foregroundStyle(isProminent ? .white : .primary)
-                .clipShape(Capsule())
-                .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-                .animation(.spring(response: 0.3), value: configuration.isPressed)
+            fallbackButton(configuration)
         }
+        #else
+        fallbackButton(configuration)
+        #endif
+    }
+    
+    @ViewBuilder
+    private func fallbackButton(_ configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(isProminent ? AnyShapeStyle(color.gradient) : AnyShapeStyle(.ultraThinMaterial))
+            .foregroundStyle(isProminent ? .white : .primary)
+            .clipShape(Capsule())
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .animation(.spring(response: 0.3), value: configuration.isPressed)
     }
 }
 

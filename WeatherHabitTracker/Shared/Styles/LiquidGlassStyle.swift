@@ -10,13 +10,22 @@ struct NativeLiquidGlass: ViewModifier {
     var cornerRadius: CGFloat = 24
     
     func body(content: Content) -> some View {
+        #if compiler(>=6.1)
         if #available(iOS 26.0, macOS 26.0, *) {
             content
                 .glassEffect(.regular.interactive(true), in: .rect(cornerRadius: cornerRadius))
         } else {
-            content
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            fallbackContent(content)
         }
+        #else
+        fallbackContent(content)
+        #endif
+    }
+    
+    @ViewBuilder
+    private func fallbackContent(_ content: Content) -> some View {
+        content
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 }
 
@@ -29,31 +38,43 @@ extension View {
     /// Prominent glass effect for buttons
     @ViewBuilder
     func liquidGlassProminent(cornerRadius: CGFloat = 24) -> some View {
+        #if compiler(>=6.1)
         if #available(iOS 26.0, macOS 26.0, *) {
             self.glassEffect(.regular.tint(.accentColor), in: .rect(cornerRadius: cornerRadius))
         } else {
             self.background(.thinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
+        #else
+        self.background(.thinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        #endif
     }
     
     /// Subtle glass effect
     @ViewBuilder
     func subtleGlass() -> some View {
+        #if compiler(>=6.1)
         if #available(iOS 26.0, macOS 26.0, *) {
             self.glassEffect(.regular, in: .rect(cornerRadius: 12))
         } else {
             self.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
         }
+        #else
+        self.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        #endif
     }
     
     /// Concentric clip shape for nested elements
     @ViewBuilder
     func concentricClipShape(cornerRadius: CGFloat = 20) -> some View {
+        #if compiler(>=6.1)
         if #available(iOS 26.0, macOS 26.0, *) {
             self.clipShape(ConcentricRectangle())
         } else {
             self.clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
+        #else
+        self.clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        #endif
     }
 }
 
