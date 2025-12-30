@@ -2,32 +2,19 @@
 //  HabitDetailView.swift
 //  WeatherHabitTracker
 //
-//  Detailed view for a single habit showing statistics, history, and actions.
-//  Uses Apple's Liquid Glass design for visual elements.
-//
 
 import SwiftUI
 import SwiftData
 
-/// Detailed view showing habit information, statistics, and completion history.
-/// Provides actions for completing, editing, and managing the habit.
+/// Detail view for habit statistics and management
 struct HabitDetailView: View {
     
     // MARK: - Properties
     
-    /// The habit to display
     let habit: Habit
-    
-    /// ViewModel for habit operations
     @Bindable var viewModel: HabitViewModel
-    
-    /// Controls the completion celebration animation
     @State private var showCompletionCelebration = false
-    
-    /// Note for completion
     @State private var completionNote: String = ""
-    
-    /// Whether to show the note input
     @State private var showNoteInput = false
     
     // MARK: - Body
@@ -438,73 +425,6 @@ struct HabitDetailView: View {
             }
         }
     }
-    
-    // MARK: - Helper Properties
-    
-    /// Days since habit was created
-    private var daysSinceCreation: Int {
-        Calendar.current.dateComponents([.day], from: habit.createdAt, to: Date()).day ?? 0
-    }
-    
-    /// Array of dates for the current week
-    private var weekDays: [Date] {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        
-        return (0..<7).compactMap { offset in
-            calendar.date(byAdding: .day, value: offset - 6, to: today)
-        }
-    }
-    
-    // MARK: - Helper Functions
-    
-    /// Triggers the celebration animation
-    private func triggerCelebration() {
-        withAnimation(.spring()) {
-            showCompletionCelebration = true
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            withAnimation {
-                showCompletionCelebration = false
-            }
-        }
-    }
-    
-    /// Checks if habit was completed on a specific date
-    private func isCompleted(on date: Date) -> Bool {
-        guard let completions = habit.completions else { return false }
-        let calendar = Calendar.current
-        return completions.contains { calendar.isDate($0.completedAt, inSameDayAs: date) }
-    }
-    
-    /// Returns day abbreviation (e.g., "Mon")
-    private func dayAbbreviation(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE"
-        return formatter.string(from: date)
-    }
-    
-    /// Returns day number (e.g., "15")
-    private func dayNumber(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "d"
-        return formatter.string(from: date)
-    }
-    
-    /// Formats a date for display
-    private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        return formatter.string(from: date)
-    }
-    
-    /// Formats a time for display
-    private func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
-    }
 }
 
 // MARK: - Preview
@@ -517,4 +437,71 @@ struct HabitDetailView: View {
         )
     }
     .modelContainer(for: Habit.self, inMemory: true)
+}
+
+// MARK: - Helper Methods Extension
+
+extension HabitDetailView {
+    /// Days since habit was created
+    var daysSinceCreation: Int {
+        Calendar.current.dateComponents([.day], from: habit.createdAt, to: Date()).day ?? 0
+    }
+    
+    /// Array of dates for the current week
+    var weekDays: [Date] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        
+        return (0..<7).compactMap { offset in
+            calendar.date(byAdding: .day, value: offset - 6, to: today)
+        }
+    }
+    
+    /// Triggers the celebration animation
+    func triggerCelebration() {
+        withAnimation(.spring()) {
+            showCompletionCelebration = true
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            withAnimation {
+                showCompletionCelebration = false
+            }
+        }
+    }
+    
+    /// Checks if habit was completed on a specific date
+    func isCompleted(on date: Date) -> Bool {
+        guard let completions = habit.completions else { return false }
+        let calendar = Calendar.current
+        return completions.contains { calendar.isDate($0.completedAt, inSameDayAs: date) }
+    }
+    
+    /// Returns day abbreviation (e.g., "Mon")
+    func dayAbbreviation(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE"
+        return formatter.string(from: date)
+    }
+    
+    /// Returns day number (e.g., "15")
+    func dayNumber(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "d"
+        return formatter.string(from: date)
+    }
+    
+    /// Formats a date for display
+    func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: date)
+    }
+    
+    /// Formats a time for display
+    func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
 }

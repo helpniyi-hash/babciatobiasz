@@ -26,7 +26,7 @@ final class WeatherViewModelTests: XCTestCase {
         await mockService.setMockWeather(WeatherResponseDTO(
             coord: CoordDTO(lon: 0, lat: 0),
             weather: [WeatherConditionDTO(id: 800, main: "Clear", description: "clear sky", icon: "01d")],
-            main: MainWeatherDTO(temp: expectedTemp, feels_like: 26.0, temp_min: 20.0, temp_max: 30.0, pressure: 1013, humidity: 50),
+            main: MainWeatherDTO(temp: expectedTemp, feelsLike: 26.0, tempMin: 20.0, tempMax: 30.0, pressure: 1013, humidity: 50),
             wind: WindDTO(speed: 5.0, deg: 180),
             dt: Date().timeIntervalSince1970,
             sys: SysDTO(sunrise: Date().timeIntervalSince1970, sunset: Date().timeIntervalSince1970 + 3600),
@@ -69,7 +69,7 @@ final class WeatherViewModelTests: XCTestCase {
         WeatherResponseDTO(
             coord: CoordDTO(lon: 0, lat: 0),
             weather: [WeatherConditionDTO(id: 800, main: "Clear", description: "clear", icon: icon)],
-            main: MainWeatherDTO(temp: 20, feels_like: 20, temp_min: 18, temp_max: 22, pressure: 1013, humidity: 50),
+            main: MainWeatherDTO(temp: 20, feelsLike: 20, tempMin: 18, tempMax: 22, pressure: 1013, humidity: 50),
             wind: WindDTO(speed: 5.0, deg: 180),
             dt: Date().timeIntervalSince1970,
             sys: SysDTO(sunrise: Date().timeIntervalSince1970, sunset: Date().timeIntervalSince1970 + 43200),
@@ -103,7 +103,7 @@ actor MockWeatherService: WeatherServiceProtocol {
         WeatherResponseDTO(
             coord: CoordDTO(lon: 0, lat: 0),
             weather: [],
-            main: MainWeatherDTO(temp: 0, feels_like: 0, temp_min: 0, temp_max: 0, pressure: 0, humidity: 0),
+            main: MainWeatherDTO(temp: 0, feelsLike: 0, tempMin: 0, tempMax: 0, pressure: 0, humidity: 0),
             wind: WindDTO(speed: 0, deg: 0),
             dt: 0,
             sys: SysDTO(sunrise: 0, sunset: 0),

@@ -1,5 +1,4 @@
 # CI/CD Pipeline for WeatherHabitTracker
-# Simplified workflow focused on build verification and release
 
 name: CI/CD Pipeline
 
@@ -13,20 +12,16 @@ on:
 env:
   SCHEME: WeatherHabitTracker
 
-# Concurrency control - cancel in-progress runs
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # ============================================
-  # STAGE 1: Code Quality & Linting
-  # ============================================
   lint:
-    name: 🔍 Code Quality
+    name: Lint
     runs-on: macos-latest
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
       
       - name: Install SwiftLint
@@ -35,26 +30,19 @@ jobs:
       - name: Run SwiftLint
         run: swiftlint lint --reporter github-actions-logging || true
 
-  # ============================================
-  # STAGE 2: Build Verification
-  # ============================================
   build:
-    name: 🔨 Build
+    name: Build
     runs-on: macos-latest
     needs: lint
     
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
       
       - name: Select Xcode
         run: |
-          # Use the latest available Xcode
           sudo xcode-select -switch /Applications/Xcode.app
           xcodebuild -version
-      
-      - name: List Available Simulators
-        run: xcrun simctl list devices available | head -50
       
       - name: Cache SPM
         uses: actions/cache@v4
@@ -68,7 +56,7 @@ jobs:
       - name: Resolve Dependencies
         run: xcodebuild -resolvePackageDependencies -scheme ${{ env.SCHEME }}
       
-      - name: Build for iOS Simulator
+      - name: Build
         run: |
           set -o pipefail
           xcodebuild build \
@@ -76,89 +64,61 @@ jobs:
             -destination "generic/platform=iOS Simulator" \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
-            ONLY_ACTIVE_ARCH=YES | xcpretty --color || xcodebuild build \
+            ONLY_ACTIVE_ARCH=YES \
+            SWIFT_VERSION=5 | xcpretty --color || xcodebuild build \
             -scheme ${{ env.SCHEME }} \
             -destination "generic/platform=iOS Simulator" \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
-            ONLY_ACTIVE_ARCH=YES
-      
-      - name: Build Summary
-        run: |
-          echo "## ✅ Build Successful" >> $GITHUB_STEP_SUMMARY
-          echo "- **Scheme:** ${{ env.SCHEME }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Configuration:** Debug" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+            ONLY_ACTIVE_ARCH=YES \
+            SWIFT_VERSION=5
 
-  # ============================================
-  # STAGE 3: Run Swift Tests (SPM)
-  # ============================================
   test:
-    name: 🧪 Tests
+    name: Unit Tests
     runs-on: macos-latest
     needs: build
     
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
       
       - name: Select Xcode
         run: sudo xcode-select -switch /Applications/Xcode.app
       
-      - name: Run Swift Package Tests
+      - name: Run Tests
         run: |
-          swift test 2>&1 | tee test-output.txt || true
-          echo "## 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
+          swift test 2>&1 | tee test-output.txt
+          TEST_RESULT=$?
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
           grep -E "Test Suite|Executed|passed|failed" test-output.txt >> $GITHUB_STEP_SUMMARY || echo "Tests completed" >> $GITHUB_STEP_SUMMARY
+          exit $TEST_RESULT
 
-  # ============================================
-  # STAGE 4: Security Check
-  # ============================================
   security:
-    name: 🔒 Security
+    name: Security
     runs-on: macos-latest
     needs: build
     
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
       
-      - name: Check for Secrets in Code
+      - name: Check for Secrets
         run: |
-          echo "🔍 Scanning for potential secrets..."
-          
-          # Check for API keys or secrets
+          echo "Scanning for potential secrets..."
           if grep -rE "(sk-|api_key|API_KEY|secret|SECRET)" --include="*.swift" . 2>/dev/null | grep -v "Secrets.plist" | grep -v ".example"; then
-            echo "⚠️ Potential secrets found in code"
+            echo "Warning: Potential secrets found"
           else
-            echo "✅ No hardcoded secrets detected"
+            echo "No hardcoded secrets detected"
           fi
-          
-          # Verify Secrets.plist doesn't have real values
-          if [ -f "WeatherHabitTracker/Resources/Secrets.plist" ]; then
-            if grep -q "YOUR_API_KEY\|YOUR_" "WeatherHabitTracker/Resources/Secrets.plist"; then
-              echo "✅ Secrets.plist contains placeholder values"
-            else
-              echo "⚠️ Secrets.plist may contain real values - ensure it's in .gitignore"
-            fi
-          fi
-      
-      - name: Security Summary
-        run: |
-          echo "## 🔒 Security Check Complete" >> $GITHUB_STEP_SUMMARY
-          echo "- No hardcoded secrets in Swift files" >> $GITHUB_STEP_SUMMARY
 
-  # ============================================
-  # STAGE 5: Create Release Archive
-  # ============================================
   release:
-    name: 📦 Release
+    name: Release
     runs-on: macos-latest
     needs: [build, test, security]
     if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main'
     
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
       
       - name: Select Xcode
@@ -172,17 +132,14 @@ jobs:
             -archivePath $PWD/build/WeatherHabitTracker.xcarchive \
             -configuration Release \
             CODE_SIGNING_ALLOWED=NO \
-            SKIP_INSTALL=NO \
-            BUILD_LIBRARY_FOR_DISTRIBUTION=YES || echo "Archive created (unsigned)"
+            SWIFT_VERSION=5 || echo "Archive created (unsigned)"
       
-      - name: Create Build Artifact
+      - name: Create Artifacts
         run: |
           mkdir -p artifacts
-          # Copy the built app if it exists
           if [ -d "build/WeatherHabitTracker.xcarchive" ]; then
             cd build && zip -r ../artifacts/WeatherHabitTracker-${{ github.sha }}.zip WeatherHabitTracker.xcarchive
           fi
-          # Create a source bundle
           zip -r artifacts/source-${{ github.sha }}.zip . -x "*.git*" -x "build/*" -x "*.xcarchive*"
       
       - name: Upload Artifacts
@@ -200,37 +157,24 @@ jobs:
           files: artifacts/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Release Summary
-        run: |
-          echo "## 📦 Release Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Version** | ${{ github.ref_name }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Commit** | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Status** | Ready for distribution |" >> $GITHUB_STEP_SUMMARY
 
-  # ============================================
-  # Final Status Report
-  # ============================================
   status:
-    name: 📊 Pipeline Status
+    name: Pipeline Status
     runs-on: ubuntu-latest
     needs: [lint, build, test, security]
     if: always()
     
     steps:
-      - name: Pipeline Summary
+      - name: Summary
         run: |
-          echo "## �� CI/CD Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## CI/CD Pipeline Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| 🔍 Lint | ${{ needs.lint.result == 'success' && '✅ Passed' || needs.lint.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🔨 Build | ${{ needs.build.result == 'success' && '✅ Passed' || needs.build.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🧪 Tests | ${{ needs.test.result == 'success' && '✅ Passed' || needs.test.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🔒 Security | ${{ needs.security.result == 'success' && '✅ Passed' || needs.security.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tests | ${{ needs.test.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security | ${{ needs.security.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
           echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
