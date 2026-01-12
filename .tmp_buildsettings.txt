@@ -1,0 +1,9 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -workspace /Users/Shared/Developer/BabciaTobiasz/.swiftpm/xcode/package.xcworkspace -scheme BabciaTobiasz -destination "platform=iOS Simulator,name=iPhone 17,OS=latest" -showBuildSettings
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  BabciaTobiasz: /Users/Shared/Developer/BabciaTobiasz
+

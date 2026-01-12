@@ -4,30 +4,32 @@
 import PackageDescription
 
 let package = Package(
-    name: "WeatherHabitTracker",
+    name: "BabciaTobiasz",
     defaultLocalization: "en",
     platforms: [
-        .iOS(.v18),
-        .macOS(.v15)
+        .iOS(.v18)
     ],
     products: [
-        .executable(
-            name: "WeatherHabitTracker",
-            targets: ["WeatherHabitTracker"]),
+        .library(
+            name: "BabciaTobiasz",
+            targets: ["BabciaTobiasz"]),
     ],
     targets: [
-        .executableTarget(
-            name: "WeatherHabitTracker",
+        .target(
+            name: "BabciaTobiasz",
             dependencies: [],
-            path: "WeatherHabitTracker",
+            path: "BabciaTobiasz",
+            exclude: [
+                "Info.plist"
+            ],
             resources: [
                 .process("Resources")
             ]
         ),
         .testTarget(
-            name: "WeatherHabitTrackerTests",
-            dependencies: ["WeatherHabitTracker"],
-            path: "Tests/WeatherHabitTrackerTests"
+            name: "BabciaTobiaszTests",
+            dependencies: ["BabciaTobiasz"],
+            path: "Tests/BabciaTobiaszTests"
         )
     ]
 )
