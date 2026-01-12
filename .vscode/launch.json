@@ -16,21 +16,21 @@
             "type": "swift",
             "request": "launch",
             "args": [],
-            "cwd": "${workspaceFolder:WeatherHabitTracker}",
-            "name": "Debug WeatherHabitTracker",
-            "target": "WeatherHabitTracker",
+            "cwd": "${workspaceFolder:BabciaTobiasz}",
+            "name": "Debug BabciaTobiasz",
+            "target": "BabciaTobiasz",
             "configuration": "debug",
-            "preLaunchTask": "swift: Build Debug WeatherHabitTracker"
+            "preLaunchTask": "swift: Build Debug BabciaTobiasz"
         },
         {
             "type": "swift",
             "request": "launch",
             "args": [],
-            "cwd": "${workspaceFolder:WeatherHabitTracker}",
-            "name": "Release WeatherHabitTracker",
-            "target": "WeatherHabitTracker",
+            "cwd": "${workspaceFolder:BabciaTobiasz}",
+            "name": "Release BabciaTobiasz",
+            "target": "BabciaTobiasz",
             "configuration": "release",
-            "preLaunchTask": "swift: Build Release WeatherHabitTracker"
+            "preLaunchTask": "swift: Build Release BabciaTobiasz"
         }
     ]
 }
