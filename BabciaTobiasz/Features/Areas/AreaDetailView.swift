@@ -342,12 +342,17 @@ struct AreaDetailView: View {
     private func handleVerificationDecision(_ decision: VerificationDecisionView.Decision, for bowl: AreaBowl) {
         switch decision {
         case .none:
-            let tier: BowlVerificationTier = viewModel.isGoldenEligible() ? .golden : .blue
-            viewModel.finalizeVerification(for: bowl, tier: tier, outcome: .failed)
+            viewModel.finalizeVerification(for: bowl, tier: .none, outcome: .skipped)
         case .blue:
-            viewModel.finalizeVerification(for: bowl, tier: .blue, outcome: .passed)
+            // Simulate verification - in production, this would check the photo
+            // For now, randomly pass/fail to demonstrate scoring
+            let passed = Bool.random()
+            viewModel.finalizeVerification(for: bowl, tier: .blue, outcome: passed ? .passed : .failed)
         case .golden:
-            viewModel.finalizeVerification(for: bowl, tier: .golden, outcome: .passed)
+            // Simulate verification - in production, this would check the photo
+            // For now, randomly pass/fail to demonstrate scoring
+            let passed = Bool.random()
+            viewModel.finalizeVerification(for: bowl, tier: .golden, outcome: passed ? .passed : .failed)
         }
     }
 

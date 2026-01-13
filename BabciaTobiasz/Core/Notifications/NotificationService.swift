@@ -97,7 +97,7 @@ final class NotificationService {
         let components = calendar.dateComponents([.hour, .minute], from: reminderTime)
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
         
-        // Create request with habit ID as identifier
+        // Create request with area ID as identifier
         let identifier = "area-\(areaId.uuidString)"
         let request = UNNotificationRequest(
             identifier: identifier,

@@ -360,6 +360,8 @@ extension AreaViewModel {
         return calendar.startOfDay(for: completedAt) == today
     }
 
+    /// PRD v1.0: Streak increments ONCE per day on FIRST "start bowl / take photo" action.
+    /// NOT on tasks, NOT on verification. Only the first bowl of the day counts.
     private func updateStreakForNewBowl() {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -403,9 +405,13 @@ extension AreaViewModel {
     }
 
     private var canStartBowlToday: Bool {
-        dailyBowlTarget <= 0 ? false : bowlsStartedTodayCount < dailyBowlTarget
+        dailyBowlTarget <= 0 ? false : bowlsCompletedTodayCount < dailyBowlTarget
     }
 
+    /// PRD v1.0: Golden eligibility is DETERMINISTIC (NOT random).
+    /// Eligible if:
+    /// - (no successful verification in last 7 days) OR
+    /// - (completed bowls today < daily target)
     func isGoldenEligible() -> Bool {
         let calendar = Calendar.current
         let sevenDaysAgo = calendar.date(byAdding: .day, value: -7, to: Date()) ?? Date.distantPast
@@ -429,6 +435,11 @@ extension AreaViewModel {
         }
     }
 
+    /// PRD v1.0: Scoring rules.
+    /// Base points earned immediately per task tick (default 1 each).
+    /// No verify keeps base only (1×).
+    /// Blue: pass 4×base, fail 2.5×base
+    /// Golden: pass 10×base, fail 5.5×base
     private func updateBowlTotals(_ bowl: AreaBowl) {
         let base = Double(bowl.basePoints)
         let multiplier: Double
