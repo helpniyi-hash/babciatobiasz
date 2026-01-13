@@ -4,23 +4,31 @@
 import SwiftUI
 import SwiftData
 
-/// Root tab navigation with Weather and Habits tabs
+/// Root tab navigation with Babcia tab layout
 struct MainTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.appDependencies) private var dependencies
     
     @State private var viewModel = MainTabViewModel()
     @State private var weatherViewModel = WeatherViewModel()
-    @State private var habitViewModel = HabitViewModel()
+    @State private var areaViewModel = AreaViewModel()
     
     var body: some View {
         TabView(selection: $viewModel.selectedTab) {
-            Tab("Weather", systemImage: "cloud.sun.fill", value: MainTabViewModel.Tab.weather) {
+            Tab("Home", systemImage: "house.fill", value: MainTabViewModel.Tab.home) {
                 WeatherView(viewModel: weatherViewModel)
             }
             
-            Tab("Habits", systemImage: "checklist", value: MainTabViewModel.Tab.habits) {
-                HabitListView(viewModel: habitViewModel)
+            Tab("Areas", systemImage: "square.grid.2x2.fill", value: MainTabViewModel.Tab.areas) {
+                AreasView(viewModel: weatherViewModel)
+            }
+
+            Tab("Babcia", systemImage: "camera.fill", value: MainTabViewModel.Tab.babcia) {
+                PlaceholderScreen(title: "Babcia", subtitle: "Camera coming soon")
+            }
+
+            Tab("Gallery", systemImage: "photo.on.rectangle", value: MainTabViewModel.Tab.gallery) {
+                HabitListView(viewModel: areaViewModel)
             }
             
             Tab("Settings", systemImage: "gear", value: MainTabViewModel.Tab.settings) {
@@ -43,15 +51,37 @@ struct MainTabView: View {
             locationService: dependencies.locationService
         )
         
-        habitViewModel.configure(
+        areaViewModel.configure(
             persistenceService: persistenceService,
             notificationService: dependencies.notificationService
         )
     }
 }
 
+private struct PlaceholderScreen: View {
+    let title: String
+    let subtitle: String
+    @Environment(\.dsTheme) private var theme
+
+    var body: some View {
+        ZStack {
+            LiquidGlassBackground(style: .default)
+
+            VStack(spacing: theme.grid.sectionSpacing) {
+                Text(title)
+                    .dsFont(.title, weight: .bold)
+                Text(subtitle)
+                    .dsFont(.body)
+                    .foregroundStyle(.secondary)
+            }
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, theme.grid.cardPadding)
+        }
+    }
+}
+
 #Preview {
     MainTabView()
-        .modelContainer(for: [Habit.self, WeatherData.self, WeatherForecast.self], inMemory: true)
+        .modelContainer(for: [Area.self, WeatherData.self, WeatherForecast.self], inMemory: true)
         .environment(AppDependencies())
 }

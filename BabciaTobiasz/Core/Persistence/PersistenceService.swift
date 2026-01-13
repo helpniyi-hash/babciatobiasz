@@ -37,57 +37,53 @@ final class PersistenceService {
         return try modelContext.fetch(descriptor)
     }
     
-    // MARK: - Habits
+    // MARK: - Areas
     
-    func fetchHabits() throws -> [Habit] {
-        var descriptor = FetchDescriptor<Habit>(
+    func fetchAreas() throws -> [Area] {
+        var descriptor = FetchDescriptor<Area>(
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
         )
-        descriptor.fetchLimit = 100
+        descriptor.fetchLimit = 200
         return try modelContext.fetch(descriptor)
     }
     
-    func createHabit(_ habit: Habit) throws {
-        modelContext.insert(habit)
+    func createArea(_ area: Area) throws {
+        modelContext.insert(area)
         try modelContext.save()
     }
     
-    func updateHabit(_ habit: Habit) throws {
+    func updateArea(_ area: Area) throws {
         try modelContext.save()
     }
     
-    func deleteHabit(_ habit: Habit) throws {
-        modelContext.delete(habit)
+    func deleteArea(_ area: Area) throws {
+        modelContext.delete(area)
         try modelContext.save()
     }
     
-    func completeHabit(_ habit: Habit, note: String? = nil) throws {
-        let completion = HabitCompletion(completedAt: Date(), note: note)
-        completion.habit = habit
-        
-        if habit.completions == nil {
-            habit.completions = []
-        }
-        habit.completions?.append(completion)
-        
+    func createBowl(for area: Area, tasks: [CleaningTask]) throws {
+        let bowl = AreaBowl(createdAt: Date(), verificationStatus: .none)
+        bowl.area = area
+        bowl.tasks = tasks
+        area.bowls?.append(bowl)
+        modelContext.insert(bowl)
         try modelContext.save()
     }
     
-    func uncompleteHabitForToday(_ habit: Habit) throws {
-        guard let completions = habit.completions else { return }
-        
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        
-        let todayCompletions = completions.filter {
-            calendar.startOfDay(for: $0.completedAt) == today
-        }
-        
-        if let lastCompletion = todayCompletions.last {
-            modelContext.delete(lastCompletion)
-            habit.completions?.removeAll { $0.id == lastCompletion.id }
-            try modelContext.save()
-        }
+    func completeTask(_ task: CleaningTask) throws {
+        task.completedAt = Date()
+        try modelContext.save()
+    }
+    
+    func uncompleteTask(_ task: CleaningTask) throws {
+        task.completedAt = nil
+        try modelContext.save()
+    }
+    
+    func verifyBowl(_ bowl: AreaBowl, superVerified: Bool = false) throws {
+        bowl.verificationStatus = superVerified ? .superVerified : .verified
+        bowl.verifiedAt = Date()
+        try modelContext.save()
     }
     
     // MARK: - Weather

@@ -115,15 +115,13 @@ struct LiquidGlassBackground: View {
     
     private var defaultBackground: some View {
         #if os(iOS)
-        MeshGradient(
-            width: 3, height: 3,
-            points: [
-                [0.0, 0.0], [0.5, 0.0], [1.0, 0.0],
-                [0.0, 0.5], [0.5, 0.5], [1.0, 0.5],
-                [0.0, 1.0], [0.5, 1.0], [1.0, 1.0]
-            ],
-            colors: theme.gradients.backgroundDefault
-        )
+        TimelineView(.animation(minimumInterval: theme.motion.meshAnimationInterval)) { timeline in
+            MeshGradient(
+                width: 3, height: 3,
+                points: animatedMeshPoints(for: timeline.date),
+                colors: theme.gradients.backgroundDefault
+            )
+        }
         .ignoresSafeArea()
         #else
         LinearGradient(
@@ -135,28 +133,37 @@ struct LiquidGlassBackground: View {
     }
     
     private var weatherBackground: some View {
-        MeshGradient(
-            width: 3, height: 3,
-            points: [
-                [0.0, 0.0], [0.5, 0.0], [1.0, 0.0],
-                [0.0, 0.5], [0.6, 0.4], [1.0, 0.5],
-                [0.0, 1.0], [0.5, 1.0], [1.0, 1.0]
-            ],
-            colors: theme.gradients.backgroundWeather
-        )
+        TimelineView(.animation(minimumInterval: theme.motion.meshAnimationInterval)) { timeline in
+            MeshGradient(
+                width: 3, height: 3,
+                points: animatedMeshPoints(for: timeline.date),
+                colors: theme.gradients.backgroundWeather
+            )
+        }
         .ignoresSafeArea()
     }
     
     private var habitsBackground: some View {
-        MeshGradient(
-            width: 3, height: 3,
-            points: [
-                [0.0, 0.0], [0.5, 0.0], [1.0, 0.0],
-                [0.0, 0.5], [0.5, 0.5], [1.0, 0.5],
-                [0.0, 1.0], [0.5, 1.0], [1.0, 1.0]
-            ],
-            colors: theme.gradients.backgroundHabits
-        )
+        TimelineView(.animation(minimumInterval: theme.motion.meshAnimationInterval)) { timeline in
+            MeshGradient(
+                width: 3, height: 3,
+                points: animatedMeshPoints(for: timeline.date),
+                colors: theme.gradients.backgroundHabits
+            )
+        }
         .ignoresSafeArea()
+    }
+
+    private func animatedMeshPoints(for date: Date) -> [SIMD2<Float>] {
+        let time = Float(date.timeIntervalSince1970)
+        let interval = Float(max(theme.motion.meshAnimationInterval, 0.1))
+        let baseSpeed = 1.0 / interval
+        let offset = sin(time * (baseSpeed * 0.5)) * 0.2
+        let offset2 = cos(time * (baseSpeed * 0.35)) * 0.14
+        return [
+            [0.0, 0.0], [0.5 + offset2, 0.0], [1.0, 0.0],
+            [0.0, 0.5], [0.5 + offset, 0.5 - offset], [1.0, 0.5],
+            [0.0, 1.0], [0.5 - offset2, 1.0], [1.0, 1.0]
+        ]
     }
 }

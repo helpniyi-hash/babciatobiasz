@@ -27,13 +27,14 @@ public struct BabciaTobiaszAppView: View {
     // MARK: - Initialization
     
     /// Initializes the app and configures the SwiftData model container.
-    /// Sets up persistence for Habit and WeatherData models.
+    /// Sets up persistence for Area and WeatherData models.
     public init() {
         do {
             // Configure the schema with all SwiftData models
             let schema = Schema([
-                Habit.self,
-                HabitCompletion.self,
+                Area.self,
+                AreaBowl.self,
+                CleaningTask.self,
                 WeatherData.self,
                 WeatherForecast.self
             ])

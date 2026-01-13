@@ -16,24 +16,30 @@ final class MainTabViewModel {
     
     /// Available tabs in the app
     enum Tab: String, CaseIterable, Identifiable {
-        case weather
-        case habits
+        case home
+        case areas
+        case babcia
+        case gallery
         case settings
         
         var id: String { rawValue }
         
         var title: String {
             switch self {
-            case .weather: return "Weather"
-            case .habits: return "Habits"
+            case .home: return "Home"
+            case .areas: return "Areas"
+            case .babcia: return "Babcia"
+            case .gallery: return "Gallery"
             case .settings: return "Settings"
             }
         }
         
         var iconName: String {
             switch self {
-            case .weather: return "cloud.sun.fill"
-            case .habits: return "checklist"
+            case .home: return "house.fill"
+            case .areas: return "square.grid.2x2.fill"
+            case .babcia: return "camera.fill"
+            case .gallery: return "photo.on.rectangle"
             case .settings: return "gear"
             }
         }
@@ -42,11 +48,11 @@ final class MainTabViewModel {
     // MARK: - State
     
     /// Currently selected tab
-    var selectedTab: Tab = .weather
+    var selectedTab: Tab = .home
     
     // MARK: - Initialization
     
-    init(selectedTab: Tab = .weather) {
+    init(selectedTab: Tab = .home) {
         self.selectedTab = selectedTab
     }
 }

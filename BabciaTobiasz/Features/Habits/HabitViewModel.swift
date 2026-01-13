@@ -1,4 +1,4 @@
-// HabitViewModel.swift
+// AreaViewModel.swift
 // BabciaTobiasz
 
 import Foundation
@@ -7,19 +7,20 @@ import SwiftData
 
 @MainActor
 @Observable
-final class HabitViewModel {
+final class AreaViewModel {
     
     // MARK: - State
     
-    var habits: [Habit] = []
-    var selectedHabit: Habit?
+    var areas: [Area] = []
+    var selectedArea: Area?
     var isLoading: Bool = false
     var errorMessage: String?
     var showError: Bool = false
-    var showHabitForm: Bool = false
-    var editingHabit: Habit?
+    var showAreaForm: Bool = false
+    var editingArea: Area?
     var searchText: String = ""
     var filterOption: FilterOption = .all
+    var dailyBowlTarget: Int = 1
     
     // MARK: - Filter Options
     
@@ -38,35 +39,43 @@ final class HabitViewModel {
     
     // MARK: - Computed Properties
     
-    var filteredHabits: [Habit] {
-        var result = habits
+    var filteredAreas: [Area] {
+        var result = areas
         
         if !searchText.isEmpty {
-            result = result.filter { habit in
-                habit.name.localizedCaseInsensitiveContains(searchText) ||
-                (habit.habitDescription?.localizedCaseInsensitiveContains(searchText) ?? false)
+            result = result.filter { area in
+                area.name.localizedCaseInsensitiveContains(searchText) ||
+                (area.areaDescription?.localizedCaseInsensitiveContains(searchText) ?? false)
             }
         }
         
         switch filterOption {
-        case .all: break
-        case .completed: result = result.filter { $0.isCompletedToday }
-        case .incomplete: result = result.filter { !$0.isCompletedToday }
+        case .all:
+            break
+        case .completed:
+            result = result.filter { isAreaCompletedToday($0) }
+        case .incomplete:
+            result = result.filter { !isAreaCompletedToday($0) }
         }
         
         return result
     }
     
-    var completedTodayCount: Int { habits.filter { $0.isCompletedToday }.count }
-    var totalHabitsCount: Int { habits.count }
+    var completedTodayCount: Int { areas.filter { isAreaCompletedToday($0) }.count }
+    var totalAreasCount: Int { areas.count }
     
     var todayCompletionPercentage: Double {
-        guard !habits.isEmpty else { return 0 }
-        return Double(completedTodayCount) / Double(totalHabitsCount)
+        guard dailyBowlTarget > 0 else { return 0 }
+        return min(1, Double(completedTodayCount) / Double(dailyBowlTarget))
     }
     
-    var bestStreak: Int { habits.map { $0.currentStreak }.max() ?? 0 }
-    var totalCompletions: Int { habits.reduce(0) { $0 + $1.totalCompletions } }
+    var bestStreak: Int { computeStreak() }
+    var totalCompletions: Int {
+        areas.reduce(0) { total, area in
+            let taskCount = area.bowls?.flatMap { $0.tasks ?? [] }.filter { $0.isCompleted }.count ?? 0
+            return total + taskCount
+        }
+    }
     
     // MARK: - Initialization
     
@@ -84,14 +93,14 @@ final class HabitViewModel {
     
     // MARK: - Data Loading
     
-    func loadHabits() {
+    func loadAreas() {
         guard let persistenceService = persistenceService else { return }
         
         isLoading = true
         defer { isLoading = false }
         
         do {
-            habits = try persistenceService.fetchHabits()
+            areas = try persistenceService.fetchAreas()
         } catch {
             handleError(error)
         }
@@ -99,92 +108,84 @@ final class HabitViewModel {
     
     // MARK: - CRUD Operations
     
-    func createHabit(
+    func createArea(
         name: String,
         description: String?,
         iconName: String,
         colorHex: String,
-        reminderTime: Date?,
-        notificationsEnabled: Bool,
-        targetFrequency: Int
+        dreamImageName: String? = nil
     ) async {
         guard let persistenceService = persistenceService else { return }
         
-        let habit = Habit(
+        let area = Area(
             name: name,
             description: description,
             iconName: iconName,
             colorHex: colorHex,
-            reminderTime: reminderTime,
-            notificationsEnabled: notificationsEnabled,
-            targetFrequency: targetFrequency
+            dreamImageName: dreamImageName
         )
         
         do {
-            try persistenceService.createHabit(habit)
-            habits.insert(habit, at: 0)
-            
-            if notificationsEnabled, let notificationService = notificationService {
-                try? await notificationService.scheduleHabitReminder(for: habit)
-            }
+            try persistenceService.createArea(area)
+            areas.insert(area, at: 0)
+            try createBowl(for: area)
         } catch {
             handleError(error)
         }
     }
     
-    func updateHabit(_ habit: Habit) async {
+    func updateArea(_ area: Area) async {
         guard let persistenceService = persistenceService else { return }
         
         do {
-            try persistenceService.updateHabit(habit)
-            
-            if let notificationService = notificationService {
-                try? await notificationService.updateHabitReminder(for: habit)
-            }
+            try persistenceService.updateArea(area)
         } catch {
             handleError(error)
         }
     }
     
-    func deleteHabit(_ habit: Habit) {
+    func deleteArea(_ area: Area) {
         guard let persistenceService = persistenceService else { return }
         
         do {
-            notificationService?.cancelHabitReminder(for: habit)
-            try persistenceService.deleteHabit(habit)
-            habits.removeAll { $0.id == habit.id }
+            try persistenceService.deleteArea(area)
+            areas.removeAll { $0.id == area.id }
         } catch {
             handleError(error)
         }
     }
     
-    func deleteHabits(at offsets: IndexSet) {
+    func deleteAreas(at offsets: IndexSet) {
         for index in offsets {
-            deleteHabit(filteredHabits[index])
+            deleteArea(filteredAreas[index])
         }
     }
     
-    // MARK: - Completion Operations
+    // MARK: - Bowl + Task Operations
     
-    func toggleCompletion(for habit: Habit) {
+    func createBowl(for area: Area) throws {
         guard let persistenceService = persistenceService else { return }
-        
+        let tasks = genericTaskTemplates().map { CleaningTask(title: $0) }
+        try persistenceService.createBowl(for: area, tasks: tasks)
+    }
+    
+    func toggleTaskCompletion(_ task: CleaningTask) {
+        guard let persistenceService = persistenceService else { return }
         do {
-            if habit.isCompletedToday && habit.todayCompletionCount >= habit.targetFrequency {
-                try persistenceService.uncompleteHabitForToday(habit)
+            if task.isCompleted {
+                try persistenceService.uncompleteTask(task)
             } else {
-                try persistenceService.completeHabit(habit)
+                try persistenceService.completeTask(task)
             }
         } catch {
             handleError(error)
         }
     }
     
-    func completeHabit(_ habit: Habit, note: String? = nil) {
+    func verifyBowl(_ bowl: AreaBowl, superVerified: Bool = false) {
         guard let persistenceService = persistenceService else { return }
-        
         do {
-            try persistenceService.completeHabit(habit, note: note)
+            try persistenceService.verifyBowl(bowl, superVerified: superVerified)
         } catch {
             handleError(error)
         }
@@ -192,19 +193,19 @@ final class HabitViewModel {
     
     // MARK: - Form Management
     
-    func addNewHabit() {
-        editingHabit = nil
-        showHabitForm = true
+    func addNewArea() {
+        editingArea = nil
+        showAreaForm = true
     }
     
-    func editHabit(_ habit: Habit) {
-        editingHabit = habit
-        showHabitForm = true
+    func editArea(_ area: Area) {
+        editingArea = area
+        showAreaForm = true
     }
     
     func closeForm() {
-        showHabitForm = false
-        editingHabit = nil
+        showAreaForm = false
+        editingArea = nil
     }
     
     // MARK: - Error Handling
@@ -222,18 +223,18 @@ final class HabitViewModel {
 
 // MARK: - Statistics
 
-extension HabitViewModel {
-    struct HabitStatistics {
-        let totalHabits: Int
+extension AreaViewModel {
+    struct AreaStatistics {
+        let totalAreas: Int
         let completedToday: Int
         let bestStreak: Int
         let totalCompletions: Int
         let completionRate: Double
     }
     
-    var statistics: HabitStatistics {
-        HabitStatistics(
-            totalHabits: totalHabitsCount,
+    var statistics: AreaStatistics {
+        AreaStatistics(
+            totalAreas: totalAreasCount,
             completedToday: completedTodayCount,
             bestStreak: bestStreak,
             totalCompletions: totalCompletions,
@@ -247,13 +248,67 @@ extension HabitViewModel {
         
         return (0..<7).reversed().map { dayOffset in
             let date = calendar.date(byAdding: .day, value: -dayOffset, to: today)!
-            let count = habits.reduce(0) { total, habit in
-                let completions = habit.completions?.filter {
-                    calendar.startOfDay(for: $0.completedAt) == date
-                }.count ?? 0
+            let count = areas.reduce(0) { total, area in
+                let tasks = area.bowls?.flatMap { $0.tasks ?? [] } ?? []
+                let completions = tasks.filter {
+                    guard let completedAt = $0.completedAt else { return false }
+                    return calendar.startOfDay(for: completedAt) == date
+                }.count
                 return total + completions
             }
             return (date, count)
         }
+    }
+
+    // MARK: - Helpers
+
+    private func isAreaCompletedToday(_ area: Area) -> Bool {
+        guard let bowl = area.latestBowl else { return false }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let bowlDay = calendar.startOfDay(for: bowl.createdAt)
+        return bowlDay == today && bowl.isCompleted
+    }
+
+    private func computeStreak() -> Int {
+        let calendar = Calendar.current
+        let daysWithBowls = areas
+            .compactMap { $0.bowls }
+            .flatMap { $0 }
+            .map { calendar.startOfDay(for: $0.createdAt) }
+
+        let uniqueDays = Set(daysWithBowls)
+        guard !uniqueDays.isEmpty else { return 0 }
+
+        let sorted = uniqueDays.sorted(by: >)
+        let today = calendar.startOfDay(for: Date())
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
+
+        guard let mostRecent = sorted.first, mostRecent >= yesterday else { return 0 }
+
+        var streak = 1
+        var currentDate = mostRecent
+
+        for date in sorted.dropFirst() {
+            let expected = calendar.date(byAdding: .day, value: -1, to: currentDate)!
+            if date == expected {
+                streak += 1
+                currentDate = date
+            } else if date < expected {
+                break
+            }
+        }
+
+        return streak
+    }
+
+    private func genericTaskTemplates() -> [String] {
+        [
+            "Clear visible surfaces",
+            "Put loose items away",
+            "Wipe one surface",
+            "Collect trash",
+            "Reset the area"
+        ]
     }
 }

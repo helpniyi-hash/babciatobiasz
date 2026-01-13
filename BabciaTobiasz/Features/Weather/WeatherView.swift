@@ -3,12 +3,20 @@
 
 import SwiftUI
 
+typealias WeatherHeaderCardBuilder = (WeatherData) -> AnyView
+
 /// Main weather display with current conditions and 7-day forecast
 struct WeatherView: View {
     @Bindable var viewModel: WeatherViewModel
+    var title: String = "Home"
+    var headerCardBuilder: WeatherHeaderCardBuilder? = nil
 
     var body: some View {
-        WeatherScreen(viewModel: viewModel)
+        WeatherScreen(
+            viewModel: viewModel,
+            title: title,
+            headerCardBuilder: headerCardBuilder
+        )
     }
 }
 
@@ -16,18 +24,19 @@ struct WeatherView: View {
 
 private struct WeatherScreen: View {
     @Bindable var viewModel: WeatherViewModel
-    @State private var showLocationSearch = false
+    let title: String
+    let headerCardBuilder: WeatherHeaderCardBuilder?
     @Environment(\.dsTheme) private var theme
 
     var body: some View {
         NavigationStack {
             WeatherScreenContent(
                 viewModel: viewModel,
-                showLocationSearch: $showLocationSearch
+                headerCardBuilder: headerCardBuilder
             )
-            .navigationTitle("Weather")
+            .navigationTitle("")
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             #endif
             .refreshable {
@@ -35,12 +44,11 @@ private struct WeatherScreen: View {
                 await viewModel.refresh()
             }
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    WeatherSearchButton(showLocationSearch: $showLocationSearch)
+                ToolbarItem(placement: .principal) {
+                    Text(title)
+                        .dsFont(.title2, weight: .bold)
+                        .lineLimit(1)
                 }
-            }
-            .sheet(isPresented: $showLocationSearch) {
-                LocationSearchView(viewModel: viewModel)
             }
             .task {
                 if viewModel.needsRefresh {
@@ -63,7 +71,7 @@ private struct WeatherScreen: View {
 
 private struct WeatherScreenContent: View {
     @Bindable var viewModel: WeatherViewModel
-    @Binding var showLocationSearch: Bool
+    let headerCardBuilder: WeatherHeaderCardBuilder?
     @Environment(\.dsTheme) private var theme
 
     var body: some View {
@@ -71,7 +79,10 @@ private struct WeatherScreenContent: View {
             WeatherBackgroundView(colors: viewModel.backgroundColors)
             
             ScrollView(showsIndicators: false) {
-                WeatherScrollContent(viewModel: viewModel)
+                WeatherScrollContent(
+                    viewModel: viewModel,
+                    headerCardBuilder: headerCardBuilder
+                )
                     .padding()
                     .frame(maxWidth: .infinity)
             }
@@ -83,12 +94,17 @@ private struct WeatherScreenContent: View {
 
 private struct WeatherScrollContent: View {
     @Bindable var viewModel: WeatherViewModel
+    let headerCardBuilder: WeatherHeaderCardBuilder?
     @Environment(\.dsTheme) private var theme
 
     var body: some View {
         VStack(spacing: 20) {
             if let weather = viewModel.currentWeather {
-                WeatherDataContent(weather: weather, viewModel: viewModel)
+                WeatherDataContent(
+                    weather: weather,
+                    viewModel: viewModel,
+                    headerCardBuilder: headerCardBuilder
+                )
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
             } else if viewModel.isLoading {
                 SkeletonLoadingView()
@@ -110,11 +126,16 @@ private struct WeatherScrollContent: View {
 private struct WeatherDataContent: View {
     let weather: WeatherData
     @Bindable var viewModel: WeatherViewModel
+    let headerCardBuilder: WeatherHeaderCardBuilder?
     @State private var showInsightTooltip = false
     @Environment(\.dsTheme) private var theme
 
     var body: some View {
-        CurrentWeatherCard(weather: weather)
+        if let headerCardBuilder {
+            headerCardBuilder(weather)
+        } else {
+            CurrentWeatherCard(weather: weather)
+        }
         SmartInsightCard(weather: weather, showTooltip: $showInsightTooltip)
         WeatherDetailsGrid(weather: weather)
 
@@ -128,28 +149,14 @@ private struct WeatherDataContent: View {
 
 // MARK: - Search Button
 
-private struct WeatherSearchButton: View {
-    @Binding var showLocationSearch: Bool
-
-    var body: some View {
-        Button {
-            showLocationSearch = true
-        } label: {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(.primary)
-                .padding(8)
-                .background(.ultraThinMaterial, in: Circle())
-        }
-    }
-}
-
 // MARK: - Background
 
 private struct WeatherBackgroundView: View {
     let colors: [Color]
+    @Environment(\.dsTheme) private var theme
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 3)) { timeline in
+        TimelineView(.animation(minimumInterval: theme.motion.meshAnimationInterval)) { timeline in
             MeshGradient(
                 width: 3,
                 height: 3,
@@ -162,11 +169,14 @@ private struct WeatherBackgroundView: View {
 
     private func animatedMeshPoints(for date: Date) -> [SIMD2<Float>] {
         let time = Float(date.timeIntervalSince1970)
-        let offset = sin(time * 0.1) * 0.05
+        let interval = Float(max(theme.motion.meshAnimationInterval, 0.1))
+        let baseSpeed = 1.0 / interval
+        let offset = sin(time * (baseSpeed * 0.5)) * 0.2
+        let offset2 = cos(time * (baseSpeed * 0.35)) * 0.14
         return [
-            [0.0, 0.0], [0.5, 0.0], [1.0, 0.0],
+            [0.0, 0.0], [0.5 + offset2, 0.0], [1.0, 0.0],
             [0.0, 0.5], [0.5 + offset, 0.5 - offset], [1.0, 0.5],
-            [0.0, 1.0], [0.5, 1.0], [1.0, 1.0]
+            [0.0, 1.0], [0.5 - offset2, 1.0], [1.0, 1.0]
         ]
     }
 }
@@ -302,19 +312,23 @@ private struct WeatherDetailsGrid: View {
     @Environment(\.dsTheme) private var theme
 
     var body: some View {
+        let smallHeight = theme.grid.detailCardHeightSmall
+        let largeHeight = theme.grid.detailCardHeightLarge
+
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-            WeatherDetailCard(icon: "humidity.fill", title: "Humidity", value: "\(weather.humidity)%", color: .cyan)
-            WeatherDetailCard(icon: "wind", title: "Wind", value: weather.windSpeedFormatted, color: .mint)
-            WeatherDetailCard(icon: "sun.max.fill", title: "UV Index", value: "\(weather.uvIndex)", subtitle: uvIndexDescription(weather.uvIndex), color: .orange)
-            WeatherDetailCard(icon: "eye.fill", title: "Visibility", value: String(format: "%.0f km", weather.visibility), color: .purple)
-            WeatherDetailCard(icon: "gauge.medium", title: "Pressure", value: "\(weather.pressure) hPa", color: .indigo)
+            WeatherDetailCard(icon: "humidity.fill", title: "Humidity", value: "\(weather.humidity)%", color: .cyan, height: smallHeight)
+            WeatherDetailCard(icon: "wind", title: "Wind", value: weather.windSpeedFormatted, color: .mint, height: smallHeight)
+            WeatherDetailCard(icon: "sun.max.fill", title: "UV Index", value: "\(weather.uvIndex)", subtitle: uvIndexDescription(weather.uvIndex), color: .orange, height: largeHeight)
+            WeatherDetailCard(icon: "eye.fill", title: "Visibility", value: String(format: "%.0f km", weather.visibility), color: .purple, height: largeHeight)
+            WeatherDetailCard(icon: "gauge.medium", title: "Pressure", value: "\(weather.pressure) hPa", color: .indigo, height: smallHeight)
 
             if let sunrise = weather.sunrise, let sunset = weather.sunset {
                 WeatherDetailCard(
                     icon: isDaytime(sunrise: sunrise, sunset: sunset) ? "sunset.fill" : "sunrise.fill",
                     title: isDaytime(sunrise: sunrise, sunset: sunset) ? "Sunset" : "Sunrise",
                     value: formatTime(isDaytime(sunrise: sunrise, sunset: sunset) ? sunset : sunrise),
-                    color: .yellow
+                    color: .yellow,
+                    height: smallHeight
                 )
             }
         }
@@ -350,6 +364,7 @@ private struct WeatherDetailCard: View {
     let value: String
     var subtitle: String? = nil
     let color: Color
+    let height: CGFloat
 
     var body: some View {
         GlassCardView {
@@ -373,6 +388,7 @@ private struct WeatherDetailCard: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: height, alignment: .topLeading)
             .padding(.vertical, 8)
         }
     }

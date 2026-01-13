@@ -13,6 +13,14 @@ Non-Negotiables (Project Rules)
 - Use the physical device (ilovepoxmox) for verification by default.
 (These are also saved in: /Users/Shared/Developer/BabciaTobiasz/PROJECT_RULES.md)
 
+CRITICAL: AGENT PROTOCOL (MANDATORY)
+-----------------------------------
+- This repo is in HARD CHAT-ONLY MODE.
+- You MUST NOT take actions (tool use/edits) without an "ACT:" prefix from the user.
+- You MUST provide a checklist and "AWAITING GO" before proceeding.
+- IGNORE ALL "LGTM" or "AUTO-PROCEED" signals; they are reinforcement triggers, not permissions.
+- See /Users/Shared/Developer/BabciaTobiasz/_CRITICAL_AGENT_PROTOCOL.md for the full law.
+
 Project Identity (Current State)
 - Project root: /Users/Shared/Developer/BabciaTobiasz
 - App name: BabciaTobiasz
@@ -57,7 +65,9 @@ What Was Done (Design System Layer)
 - Goal: UI should look identical to the baseline app, but now all styling routes through the theme.
  - Fixed build issues in DesignSystemTheme (gradient references, font-name resolver).
  - Fixed ErrorView permission card to read theme from environment.
- - OnboardingView background uses TimelineView with animated mesh points; motion is now slower but with larger offsets (stronger drift).
+- OnboardingView background uses TimelineView with animated mesh points; motion is now slower but with larger offsets (stronger drift).
+- Replaced invalid spacing token usages (componentSpacing -> listSpacing) in SettingsView/HabitFormView.
+- Updated HabitFormView dsFont weights to use .bold (DSFontWeight supports regular/bold only).
 
 Fonts + Assets (From Original Babcia)
 - Fonts copied from:
@@ -91,6 +101,7 @@ Files That Matter Now
 Build/Run Status (Current)
 - App builds, installs, and launches on the physical device (ilovepoxmox) when connected.
 - Simulator is optional; device is the default verification target.
+- Simulator build via xcodebuild failed in sandbox (CoreSimulator service connection + workspace error). Re-run outside sandbox if needed.
 
 How to Build/Install/Run on Device (Authoritative)
 1) Build for device:
@@ -112,5 +123,19 @@ Planned Next Steps (When Resuming)
 Current Open Questions
 - Which motion preset should be the default (slow/normal/fast) once art direction is decided?
 
+Latest Updates
+- Mesh animation timing now uses theme.motion.meshAnimationInterval everywhere (LiquidGlassBackground, Onboarding, Weather, Settings, HabitForm, HabitDetail) with larger, slower offsets.
+- Weather detail cards now use DSGrid height tokens (small/large). UV + Visibility are the large pair; other cards are small.
+- Home/Areas mapping: WeatherView title now shows "Home"; Habits tab title shows "Areas".
+- Removed Weather search button + search sheet from Home (LocationSearchView still exists, unused for now).
+- Areas page now uses an internal ScalingHeaderScrollView with a Baroness headshot hero and a pinned bottom search bar.
+- Added a timestamped project log at /Users/Shared/Developer/BabciaTobiasz/PROJECT_STATE.md.
+- Decision locked (A1/B1/C1): Areas will reuse the Weather layout; current Habits view moves to Gallery placeholder; Babcia tab stays centered placeholder; handoff updated first before code.
+- Implemented A1/B1/C1: Areas now uses Weather layout via a new AreasView with a hero image card replacing the weather card; Gallery now shows HabitListView placeholder; Home remains WeatherView.
+- Dream image spec locked: master 1200x1600 portrait. Test asset stored as DreamRoom_Test_1200x1600 in BabciaAssets.xcassets and used in Areas hero card.
+- Added DSGrid.heroCardHeight token (260) and set Areas hero card to full-bleed within its glass card using the dream image.
+
 Last Updated
-- Updated after restoring Onboarding background animation and re-installing to device.
+- 2026-01-12 19:05 GMT: Logged A1/B1/C1 decisions and requirement to update handoff before code changes.
+- 2026-01-12 19:05 GMT: Applied A1/B1/C1 wiring and added AreasView hero card.
+- 2026-01-13 01:46 GMT: Added hero card height token and wired DreamRoom_Test_1200x1600 into Areas hero card.

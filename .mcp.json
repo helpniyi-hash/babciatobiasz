@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "quint-code": {
+      "command": "/Users/dietpi/.local/bin/quint-code",
+      "args": [
+        "serve"
+      ],
+      "cwd": "/Users/Shared/Developer/BabciaTobiasz",
+      "env": {
+        "QUINT_PROJECT_ROOT": "/Users/Shared/Developer/BabciaTobiasz"
+      }
+    }
+  }
+}

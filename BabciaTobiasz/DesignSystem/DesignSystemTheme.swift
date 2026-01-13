@@ -70,6 +70,9 @@ struct DSGrid {
     var iconXL: CGFloat
     var iconXXL: CGFloat
     var ringSize: CGFloat
+    var detailCardHeightSmall: CGFloat
+    var detailCardHeightLarge: CGFloat
+    var heroCardHeight: CGFloat
 }
 
 enum DSGlassStrength {
@@ -297,7 +300,10 @@ extension DesignSystemTheme {
             iconError: 50,
             iconXL: 60,
             iconXXL: 80,
-            ringSize: 100
+            ringSize: 100,
+            detailCardHeightSmall: 120,
+            detailCardHeightLarge: 150,
+            heroCardHeight: 260
         ),
         glass: DSGlass(
             strength: .regular,

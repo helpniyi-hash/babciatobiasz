@@ -1,506 +1,259 @@
 //
-//  HabitDetailView.swift
+//  AreaDetailView.swift
 //  BabciaTobiasz
 //
 
 import SwiftUI
 import SwiftData
 
-/// Detail view for habit statistics and management
+/// Detail view for an Area's current bowl and tasks.
 struct HabitDetailView: View {
-    
-    // MARK: - Properties
-    
-    let habit: Habit
-    @Bindable var viewModel: HabitViewModel
-    @State private var showCompletionCelebration = false
-    @State private var completionNote: String = ""
-    @State private var showNoteInput = false
+    let area: Area
+    @Bindable var viewModel: AreaViewModel
     @Environment(\.dsTheme) private var theme
-    
-    // MARK: - Body
-    
+
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                // Header with icon and status
                 headerSection
-                
-                // Quick complete button
-                completeButton
-                
-                // Statistics cards
-                statisticsSection
-                
-                // Streak calendar
-                streakSection
-                
-                // Recent completions
-                recentCompletionsSection
+                tasksSection
+                bowlStatusSection
             }
             .padding()
         }
         .background(backgroundGradient)
-        .navigationTitle(habit.name)
+        .navigationTitle("")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text(area.name)
+                    .dsFont(.headline, weight: .bold)
+                    .lineLimit(1)
+            }
             ToolbarItem(placement: .primaryAction) {
                 Menu {
                     Button {
-                        viewModel.editHabit(habit)
+                        viewModel.editArea(area)
                     } label: {
-                        Label("Edit Habit", systemImage: "pencil")
+                        Label("Edit Area", systemImage: "pencil")
                     }
-                    
+
                     Divider()
-                    
+
                     Button(role: .destructive) {
-                        viewModel.deleteHabit(habit)
+                        viewModel.deleteArea(area)
                     } label: {
-                        Label("Delete Habit", systemImage: "trash")
+                        Label("Delete Area", systemImage: "trash")
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
             }
         }
-        .sheet(isPresented: $viewModel.showHabitForm) {
-            HabitFormView(viewModel: viewModel, habit: viewModel.editingHabit)
-        }
-        .alert("Add Note", isPresented: $showNoteInput) {
-            TextField("How did it go?", text: $completionNote)
-            Button("Cancel", role: .cancel) {
-                completionNote = ""
-            }
-            Button("Complete") {
-                viewModel.completeHabit(habit, note: completionNote.isEmpty ? nil : completionNote)
-                completionNote = ""
-                triggerCelebration()
-            }
-        } message: {
-            Text("Add an optional note about this completion")
-        }
-        .overlay {
-            if showCompletionCelebration {
-                celebrationOverlay
-            }
+        .sheet(isPresented: $viewModel.showAreaForm) {
+            HabitFormView(viewModel: viewModel, area: viewModel.editingArea)
         }
     }
-    
+
     // MARK: - Background
-    
-    /// Gradient background using habit color
+
     private var backgroundGradient: some View {
-        LinearGradient(
-            colors: [
-                habit.color.opacity(0.2),
-                habit.color.opacity(0.1),
-                Color.clear
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        TimelineView(.animation(minimumInterval: theme.motion.meshAnimationInterval)) { timeline in
+            MeshGradient(
+                width: 3,
+                height: 3,
+                points: animatedMeshPoints(for: timeline.date),
+                colors: [
+                    area.color.opacity(0.15),
+                    theme.palette.secondary.opacity(0.1),
+                    area.color.opacity(0.1),
+                    theme.palette.tertiary.opacity(0.15),
+                    area.color.opacity(0.2),
+                    theme.palette.primary.opacity(0.1),
+                    area.color.opacity(0.1),
+                    theme.palette.secondary.opacity(0.15),
+                    area.color.opacity(0.15)
+                ]
+            )
+        }
         .ignoresSafeArea()
     }
-    
-    // MARK: - Header Section
-    
-    /// Header with habit icon and current status
+
+    private func animatedMeshPoints(for date: Date) -> [SIMD2<Float>] {
+        let time = Float(date.timeIntervalSince1970)
+        let interval = Float(max(theme.motion.meshAnimationInterval, 0.1))
+        let baseSpeed = 1.0 / interval
+        let offset = sin(time * (baseSpeed * 0.5)) * 0.2
+        let offset2 = cos(time * (baseSpeed * 0.35)) * 0.14
+        return [
+            [0.0, 0.0], [0.5 + offset2, 0.0], [1.0, 0.0],
+            [0.0, 0.5], [0.5 + offset, 0.5 - offset], [1.0, 0.5],
+            [0.0, 1.0], [0.5 - offset2, 1.0], [1.0, 1.0]
+        ]
+    }
+
+    // MARK: - Header
+
     private var headerSection: some View {
         GlassCardView {
             VStack(spacing: 16) {
-                // Icon
                 ZStack {
                     Circle()
-                        .fill(habit.color.opacity(0.2))
-                        .frame(width: 100, height: 100)
-                    
-                    Image(systemName: habit.iconName)
+                        .fill(area.color.opacity(0.2))
+                        .frame(width: 96, height: 96)
+
+                    Image(systemName: area.iconName)
                         .font(.system(size: theme.grid.iconLarge))
-                        .foregroundStyle(habit.color)
-                        .symbolEffect(.bounce, value: habit.isCompletedToday)
+                        .foregroundStyle(area.color)
                 }
-                
-                // Description
-                if let description = habit.habitDescription {
+
+                if let description = area.areaDescription, !description.isEmpty {
                     Text(description)
                         .dsFont(.body)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
+                } else {
+                    Text("Give your area a memorable name")
+                        .dsFont(.body)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                 }
-                
-                // Status badges
-                HStack(spacing: 12) {
-                    statusBadge(
-                        icon: "flame.fill",
-                        text: "\(habit.currentStreak) day streak",
-                        color: .orange
-                    )
-                    
-                    if habit.notificationsEnabled {
-                        statusBadge(
-                            icon: "bell.fill",
-                            text: "Reminders on",
-                            color: .blue
-                        )
-                    }
+
+                if let bowl = area.activeBowl {
+                    Text("Bowl created \(formattedDate(bowl.createdAt))")
+                        .dsFont(.caption)
+                        .foregroundStyle(.tertiary)
                 }
             }
             .padding(.vertical, 12)
         }
-        .scrollTransition { content, phase in
-            content
-                .opacity(phase.isIdentity ? 1 : 0.8)
-                .scaleEffect(phase.isIdentity ? 1 : 0.98)
-                .blur(radius: phase.isIdentity ? 0 : 2)
-        }
     }
-    
-    /// Small status badge
-    private func statusBadge(icon: String, text: String, color: Color) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon)
-                .dsFont(.caption)
-            Text(text)
-                .dsFont(.caption)
-        }
-        .foregroundStyle(color)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(color.opacity(0.15), in: Capsule())
-    }
-    
-    // MARK: - Complete Button
-    
-    /// Main completion button
-    private var completeButton: some View {
-        Button {
-            if habit.targetFrequency > 1 {
-                showNoteInput = true
-            } else {
-                viewModel.toggleCompletion(for: habit)
-                if !habit.isCompletedToday {
-                    triggerCelebration()
-                }
-            }
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: habit.isCompletedToday ? "checkmark.circle.fill" : "circle")
-                    .dsFont(.title2)
-                    .contentTransition(.symbolEffect(.replace))
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(habit.isCompletedToday ? "Completed!" : "Mark Complete")
-                        .dsFont(.headline)
-                        .contentTransition(.numericText())
-                    
-                    if habit.targetFrequency > 1 {
-                        Text("\(habit.todayCompletionCount)/\(habit.targetFrequency) today")
-                            .dsFont(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                
-                Spacer()
-                
-                if habit.isCompletedToday && habit.todayCompletionCount >= habit.targetFrequency {
-                    Image(systemName: "star.fill")
-                        .foregroundStyle(.yellow)
-                        .symbolEffect(.bounce, value: habit.isCompletedToday)
-                }
-            }
-            .padding()
-            .background(
-                habit.isCompletedToday 
-                    ? habit.color.opacity(0.2) 
-                    : Color.primary.opacity(0.05),
-                in: RoundedRectangle(cornerRadius: theme.shape.controlCornerRadius)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: theme.shape.controlCornerRadius)
-                    .stroke(habit.color.opacity(0.3), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-        .sensoryFeedback(.success, trigger: habit.isCompletedToday)
-        .scrollTransition { content, phase in
-            content
-                .opacity(phase.isIdentity ? 1 : 0.8)
-                .scaleEffect(phase.isIdentity ? 1 : 0.98)
-                .blur(radius: phase.isIdentity ? 0 : 2)
-        }
-    }
-    
-    // MARK: - Statistics Section
-    
-    /// Grid of statistics
-    private var statisticsSection: some View {
-        LazyVGrid(columns: [
-            GridItem(.flexible()),
-            GridItem(.flexible())
-        ], spacing: 12) {
-            statisticCard(
-                title: "Current Streak",
-                value: "\(habit.currentStreak)",
-                icon: "flame.fill",
-                color: .orange
-            )
-            
-            statisticCard(
-                title: "Total Completions",
-                value: "\(habit.totalCompletions)",
-                icon: "checkmark.circle.fill",
-                color: .green
-            )
-            
-            statisticCard(
-                title: "Target/Day",
-                value: "\(habit.targetFrequency)",
-                icon: "target",
-                color: .purple
-            )
-            
-            statisticCard(
-                title: "Days Tracked",
-                value: "\(daysSinceCreation)",
-                icon: "calendar",
-                color: .blue
-            )
-        }
-    }
-    
-    /// Individual statistic card
-    private func statisticCard(
-        title: String,
-        value: String,
-        icon: String,
-        color: Color
-    ) -> some View {
-        GlassCardView {
-            VStack(spacing: 8) {
-                Image(systemName: icon)
-                    .dsFont(.title2)
-                    .foregroundStyle(color)
-                
-                Text(value)
-                    .dsFont(.title, weight: .bold)
-                
-                Text(title)
-                    .dsFont(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.vertical, 8)
-        }
-    }
-    
-    // MARK: - Streak Section
-    
-    /// Weekly streak visualization
-    private var streakSection: some View {
+
+    // MARK: - Tasks
+
+    private var tasksSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("This Week")
+            Text("Tasks (5)")
                 .dsFont(.headline, weight: .bold)
-            
+
             GlassCardView {
-                HStack(spacing: 8) {
-                    ForEach(weekDays, id: \.self) { date in
-                        VStack(spacing: 8) {
-                            Text(dayAbbreviation(for: date))
-                                .dsFont(.caption)
-                                .foregroundStyle(.secondary)
-                            
-                            ZStack {
-                                Circle()
-                                    .fill(isCompleted(on: date) ? habit.color : Color.primary.opacity(0.1))
-                                    .frame(width: 36, height: 36)
-                                
-                                if isCompleted(on: date) {
-                                    Image(systemName: "checkmark")
-                                        .dsFont(.caption, weight: .bold)
-                                        .foregroundStyle(.white)
-                                }
-                            }
-                            
-                            Text(dayNumber(for: date))
-                                .dsFont(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                }
-                .padding(.vertical, 8)
-            }
-        }
-    }
-    
-    // MARK: - Recent Completions
-    
-    /// List of recent completions with notes
-    private var recentCompletionsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Recent Activity")
-                .dsFont(.headline, weight: .bold)
-            
-            if let completions = habit.completions?.sorted(by: { $0.completedAt > $1.completedAt }).prefix(5), !completions.isEmpty {
-                GlassCardView {
-                    VStack(spacing: 0) {
-                        ForEach(Array(completions.enumerated()), id: \.element.id) { index, completion in
-                            completionRow(completion)
-                            
-                            if index < completions.count - 1 {
-                                Divider()
-                                    .padding(.vertical, 8)
-                            }
+                VStack(spacing: 0) {
+                    ForEach(activeTasks) { task in
+                        taskRow(task)
+                        if task.id != activeTasks.last?.id {
+                            Divider().padding(.vertical, 8)
                         }
                     }
-                }
-            } else {
-                GlassCardView {
-                    Text("No completions yet")
-                        .dsFont(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 20)
                 }
             }
         }
     }
-    
-    /// Single completion row
-    private func completionRow(_ completion: HabitCompletion) -> some View {
-        HStack {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(formatDate(completion.completedAt))
+
+    private func taskRow(_ task: CleaningTask) -> some View {
+        HStack(spacing: 12) {
+            Button {
+                viewModel.toggleTaskCompletion(task)
+                hapticFeedback(.light)
+            } label: {
+                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(task.isCompleted ? .green : .secondary)
+                    .dsFont(.title3)
+            }
+            .buttonStyle(.plain)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(task.title)
                     .dsFont(.body)
-                
-                if let note = completion.note {
-                    Text(note)
+                if let detail = task.detail, !detail.isEmpty {
+                    Text(detail)
                         .dsFont(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
-            
+
             Spacer()
-            
-            Text(formatTime(completion.completedAt))
-                .dsFont(.caption)
-                .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
     }
-    
-    // MARK: - Celebration Overlay
-    
-    /// Celebration animation when completing habit
-    private var celebrationOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.3)
-                .ignoresSafeArea()
-            
-            VStack(spacing: 16) {
-                Image(systemName: "star.fill")
-                    .font(.system(size: theme.grid.iconXL))
-                    .foregroundStyle(.yellow)
-                
-                Text("Great job!")
-                    .dsFont(.title, weight: .bold)
-                
-                Text("Keep up the streak!")
-                    .dsFont(.body)
-                    .foregroundStyle(.secondary)
+
+    // MARK: - Bowl Status
+
+    private var bowlStatusSection: some View {
+        GlassCardView {
+            VStack(spacing: 12) {
+                if bowlCompleted {
+                    Text("Bowl complete")
+                        .dsFont(.headline, weight: .bold)
+
+                    Text("You can verify this bowl for more points.")
+                        .dsFont(.body)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+
+                    if let bowl = area.activeBowl, bowl.isVerified {
+                        verifiedBadge(for: bowl)
+                    } else {
+                        Button {
+                            if let bowl = area.activeBowl {
+                                let isSuper = Int.random(in: 1...20) == 1
+                                viewModel.verifyBowl(bowl, superVerified: isSuper)
+                                hapticFeedback(.success)
+                            }
+                        } label: {
+                            Label("Verify bowl", systemImage: "checkmark.seal.fill")
+                                .dsFont(.headline)
+                        }
+                        .buttonStyle(.nativeGlassProminent)
+                    }
+                } else {
+                    Text("Finish all 5 tasks to complete the bowl.")
+                        .dsFont(.body)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
             }
-            .padding(40)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: theme.shape.glassCornerRadius))
-        }
-        .transition(.scale.combined(with: .opacity))
-        .onTapGesture {
-            withAnimation {
-                showCompletionCelebration = false
-            }
+            .padding(.vertical, 8)
         }
     }
-}
 
-// MARK: - Preview
+    private func verifiedBadge(for bowl: AreaBowl) -> some View {
+        let title = bowl.verificationStatus == .superVerified ? "Superverify" : "Verified"
+        let icon = bowl.verificationStatus == .superVerified ? "checkmark.seal.fill" : "checkmark.seal"
+        let color: Color = bowl.verificationStatus == .superVerified ? .yellow : .blue
 
-#Preview {
-    NavigationStack {
-        HabitDetailView(
-            habit: Habit.sampleHabits[0],
-            viewModel: HabitViewModel()
-        )
+        return HStack(spacing: 8) {
+            Image(systemName: icon)
+                .foregroundStyle(color)
+            Text(title)
+                .dsFont(.headline)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(color.opacity(0.15), in: Capsule())
     }
-    .modelContainer(for: Habit.self, inMemory: true)
-}
 
-// MARK: - Helper Methods Extension
+    // MARK: - Helpers
 
-extension HabitDetailView {
-    /// Days since habit was created
-    var daysSinceCreation: Int {
-        Calendar.current.dateComponents([.day], from: habit.createdAt, to: Date()).day ?? 0
+    private var activeTasks: [CleaningTask] {
+        area.activeBowl?.tasks ?? []
     }
-    
-    /// Array of dates for the current week
-    var weekDays: [Date] {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        
-        return (0..<7).compactMap { offset in
-            calendar.date(byAdding: .day, value: offset - 6, to: today)
-        }
+
+    private var bowlCompleted: Bool {
+        area.activeBowl?.isCompleted ?? false
     }
-    
-    /// Triggers the celebration animation
-    func triggerCelebration() {
-        withAnimation(theme.motion.pressSpring) {
-            showCompletionCelebration = true
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            withAnimation {
-                showCompletionCelebration = false
-            }
-        }
-    }
-    
-    /// Checks if habit was completed on a specific date
-    func isCompleted(on date: Date) -> Bool {
-        guard let completions = habit.completions else { return false }
-        let calendar = Calendar.current
-        return completions.contains { calendar.isDate($0.completedAt, inSameDayAs: date) }
-    }
-    
-    /// Returns day abbreviation (e.g., "Mon")
-    func dayAbbreviation(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE"
-        return formatter.string(from: date)
-    }
-    
-    /// Returns day number (e.g., "15")
-    func dayNumber(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "d"
-        return formatter.string(from: date)
-    }
-    
-    /// Formats a date for display
-    func formatDate(_ date: Date) -> String {
+
+    private func formattedDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         return formatter.string(from: date)
     }
-    
-    /// Formats a time for display
-    func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+}
+
+#Preview {
+    NavigationStack {
+        HabitDetailView(area: Area.sampleAreas[0], viewModel: AreaViewModel())
     }
+    .modelContainer(for: Area.self, inMemory: true)
 }

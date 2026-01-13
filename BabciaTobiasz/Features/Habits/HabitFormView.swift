@@ -1,177 +1,144 @@
 //
-//  HabitFormView.swift
+//  AreaFormView.swift
 //  BabciaTobiasz
-//
-//  Form view for creating and editing habits with modern SwiftUI form elements.
-//  Uses Apple's design patterns for form presentation.
 //
 
 import SwiftUI
 
-/// Form view for adding or editing a habit.
-/// Provides fields for all habit properties with validation.
+/// Form view for adding or editing an area.
 struct HabitFormView: View {
-    
-    // MARK: - Environment
-    
+
     @Environment(\.dismiss) private var dismiss
-    
-    // MARK: - Properties
-    
-    /// ViewModel for habit operations
-    @Bindable var viewModel: HabitViewModel
-    
-    /// The habit being edited (nil for new habit)
-    let habit: Habit?
+
+    @Bindable var viewModel: AreaViewModel
+    let area: Area?
     @Environment(\.dsTheme) private var theme
-    
-    // MARK: - Form State
-    
+
     @State private var name: String = ""
     @State private var description: String = ""
-    @State private var selectedIcon: String = "star.fill"
-    @State private var selectedColor: Color = .blue
-    @State private var reminderEnabled: Bool = false
-    @State private var reminderTime: Date = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
-    @State private var targetFrequency: Int = 1
-    
-    /// Available icon options
+    @State private var selectedIcon: String = "square.grid.2x2.fill"
+    @State private var selectedColor: Color = .teal
+
     private let iconOptions = [
-        "star.fill", "heart.fill", "bolt.fill", "flame.fill",
-        "drop.fill", "leaf.fill", "moon.fill", "sun.max.fill",
-        "figure.run", "figure.walk", "dumbbell.fill", "sportscourt.fill",
-        "book.fill", "pencil", "brain.head.profile", "lightbulb.fill",
-        "cup.and.saucer.fill", "fork.knife", "pills.fill", "bed.double.fill",
-        "music.note", "guitars.fill", "paintbrush.fill", "camera.fill"
+        "square.grid.2x2.fill", "bed.double.fill", "cup.and.saucer.fill", "fork.knife",
+        "sofa.fill", "lamp.desk.fill", "sink.fill", "washer.fill",
+        "leaf.fill", "star.fill", "heart.fill", "sparkles"
     ]
-    
-    /// Available color options
+
     private let colorOptions: [Color] = [
-        .blue, .purple, .pink, .red, .orange, .yellow,
-        .green, .mint, .teal, .cyan, .indigo, .brown
+        .teal, .green, .mint, .cyan, .blue, .indigo,
+        .purple, .pink, .orange, .yellow, .brown, .gray
     ]
-    
-    /// Whether the form has valid input
+
     private var isValid: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
-    
-    /// Whether we're editing an existing habit
+
     private var isEditing: Bool {
-        habit != nil
+        area != nil
     }
-    
-    // MARK: - Body
-    
+
     var body: some View {
         NavigationStack {
-            Form {
-                // Basic Info Section
-                Section {
-                    TextField("Habit Name", text: $name)
-                        .dsFont(.headline)
-                    
-                    TextField("Description (optional)", text: $description, axis: .vertical)
-                        .lineLimit(3...6)
-                } header: {
-                    Text("Basic Info")
-                } footer: {
-                    Text("Give your habit a memorable name")
-                }
-                
-                // Appearance Section
-                Section("Appearance") {
-                    // Icon picker
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Icon")
-                            .dsFont(.subheadline)
-                            .foregroundStyle(.secondary)
-                        
-                        iconPicker
-                    }
-                    .padding(.vertical, 8)
-                    
-                    // Color picker
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Color")
-                            .dsFont(.subheadline)
-                            .foregroundStyle(.secondary)
-                        
-                        colorPicker
-                    }
-                    .padding(.vertical, 8)
-                }
-                
-                // Target Section
-                Section {
-                    Stepper(value: $targetFrequency, in: 1...20) {
-                        HStack {
-                            Text("Daily Target")
-                            Spacer()
-                            Text("\(targetFrequency) time\(targetFrequency == 1 ? "" : "s")")
+            ZStack {
+                backgroundGradient
+
+                ScrollView {
+                    VStack(spacing: theme.grid.sectionSpacing) {
+                        VStack(alignment: .leading, spacing: theme.grid.listSpacing) {
+                            Text("Basic Info")
+                                .dsFont(.headline, weight: .bold)
+                                .padding(.horizontal, 4)
+
+                            GlassCardView {
+                                VStack(spacing: 16) {
+                                    TextField("Area name", text: $name)
+                                        .dsFont(.headline)
+
+                                    Divider()
+
+                                    TextField("Description (optional)", text: $description, axis: .vertical)
+                                        .dsFont(.body)
+                                        .lineLimit(3...6)
+                                }
+                            }
+
+                            Text("Give your area a memorable name")
+                                .dsFont(.caption)
                                 .foregroundStyle(.secondary)
+                                .padding(.horizontal, 4)
+                        }
+
+                        VStack(alignment: .leading, spacing: theme.grid.listSpacing) {
+                            Text("Appearance")
+                                .dsFont(.headline, weight: .bold)
+                                .padding(.horizontal, 4)
+
+                            GlassCardView {
+                                VStack(alignment: .leading, spacing: 20) {
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        Text("Icon")
+                                            .dsFont(.subheadline, weight: .bold)
+                                            .foregroundStyle(.secondary)
+
+                                        iconPicker
+                                    }
+
+                                    Divider()
+
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        Text("Color")
+                                            .dsFont(.subheadline, weight: .bold)
+                                            .foregroundStyle(.secondary)
+
+                                        colorPicker
+                                    }
+                                }
+                            }
+                        }
+
+                        VStack(alignment: .leading, spacing: theme.grid.listSpacing) {
+                            Text("Preview")
+                                .dsFont(.headline, weight: .bold)
+                                .padding(.horizontal, 4)
+
+                            GlassCardView {
+                                previewCard
+                            }
                         }
                     }
-                } header: {
-                    Text("Goal")
-                } footer: {
-                    Text("How many times per day do you want to complete this habit?")
-                }
-                
-                // Reminder Section
-                Section {
-                    Toggle("Enable Reminders", isOn: $reminderEnabled)
-                    
-                    if reminderEnabled {
-                        DatePicker(
-                            "Reminder Time",
-                            selection: $reminderTime,
-                            displayedComponents: .hourAndMinute
-                        )
-                    }
-                } header: {
-                    Text("Reminders")
-                } footer: {
-                    if reminderEnabled {
-                        Text("You'll receive a daily notification at this time")
-                    }
-                }
-                
-                // Preview Section
-                Section("Preview") {
-                    previewCard
+                    .padding()
                 }
             }
-            // Use grouped form style - iOS 26 applies Liquid Glass automatically
-            .formStyle(.grouped)
-            .navigationTitle(isEditing ? "Edit Habit" : "New Habit")
+            .navigationTitle("")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text(isEditing ? "Edit Area" : "New Area")
+                        .dsFont(.headline, weight: .bold)
+                        .lineLimit(1)
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         dismiss()
                     }
+                    .dsFont(.headline)
                 }
-                
+
                 ToolbarItem(placement: .confirmationAction) {
                     Button(isEditing ? "Save" : "Add") {
-                        saveHabit()
+                        saveArea()
                     }
+                    .dsFont(.headline, weight: .bold)
                     .disabled(!isValid)
-                    .fontWeight(.semibold)
                 }
             }
-            .onAppear {
-                loadExistingData()
-            }
+            .onAppear { loadExistingData() }
         }
     }
-    
-    // MARK: - Icon Picker
-    
-    /// Grid of icon options
+
     private var iconPicker: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 12) {
             ForEach(iconOptions, id: \.self) { icon in
@@ -196,10 +163,7 @@ struct HabitFormView: View {
             }
         }
     }
-    
-    // MARK: - Color Picker
-    
-    /// Grid of color options
+
     private var colorPicker: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 12) {
             ForEach(colorOptions, id: \.self) { color in
@@ -214,131 +178,121 @@ struct HabitFormView: View {
                                 .stroke(Color.primary, lineWidth: selectedColor == color ? 3 : 0)
                                 .padding(2)
                         )
-                                    .overlay {
-                                        if selectedColor == color {
-                                            Image(systemName: "checkmark")
-                                                .dsFont(.caption, weight: .bold)
-                                                .foregroundStyle(.white)
-                                        }
-                                    }
+                        .overlay {
+                            if selectedColor == color {
+                                Image(systemName: "checkmark")
+                                    .dsFont(.caption, weight: .bold)
+                                    .foregroundStyle(.white)
+                            }
+                        }
                 }
                 .buttonStyle(.plain)
             }
         }
     }
-    
-    // MARK: - Preview Card
-    
-    /// Live preview of how the habit will look
+
     private var previewCard: some View {
         HStack(spacing: 16) {
-            // Icon
             ZStack {
                 Circle()
                     .fill(selectedColor.opacity(0.2))
                     .frame(width: 50, height: 50)
-                
+
                 Image(systemName: selectedIcon)
                     .font(.system(size: theme.grid.iconTitle2))
                     .foregroundStyle(selectedColor)
             }
-            
-            // Info
+
             VStack(alignment: .leading, spacing: 4) {
-                Text(name.isEmpty ? "Habit Name" : name)
+                Text(name.isEmpty ? "Area name" : name)
                     .dsFont(.headline)
                     .foregroundStyle(name.isEmpty ? .secondary : .primary)
-                
+
                 if !description.isEmpty {
                     Text(description)
                         .dsFont(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
-                
-                HStack(spacing: 8) {
-                    Label("\(targetFrequency)/day", systemImage: "target")
-                        .dsFont(.caption2)
-                        .foregroundStyle(.secondary)
-                    
-                    if reminderEnabled {
-                        Label(formatTime(reminderTime), systemImage: "bell.fill")
-                            .dsFont(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
             }
-            
+
             Spacer()
-            
-            // Checkbox preview
-            Image(systemName: "circle")
-                .font(.system(size: theme.grid.iconTitle2))
-                .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 8)
     }
-    
-    // MARK: - Actions
-    
-    /// Loads existing habit data if editing
+
     private func loadExistingData() {
-        guard let habit = habit else { return }
-        
-        name = habit.name
-        description = habit.habitDescription ?? ""
-        selectedIcon = habit.iconName
-        selectedColor = habit.color
-        reminderEnabled = habit.notificationsEnabled
-        reminderTime = habit.reminderTime ?? Date()
-        targetFrequency = habit.targetFrequency
+        guard let area = area else { return }
+
+        name = area.name
+        description = area.areaDescription ?? ""
+        selectedIcon = area.iconName
+        selectedColor = area.color
     }
-    
-    /// Saves the habit (creates new or updates existing)
-    private func saveHabit() {
+
+    private func saveArea() {
         Task {
-            if let habit = habit {
-                // Update existing habit
-                habit.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                habit.habitDescription = description.isEmpty ? nil : description
-                habit.iconName = selectedIcon
-                habit.colorHex = selectedColor.hexString
-                habit.notificationsEnabled = reminderEnabled
-                habit.reminderTime = reminderEnabled ? reminderTime : nil
-                habit.targetFrequency = targetFrequency
-                
-                await viewModel.updateHabit(habit)
+            if let area = area {
+                area.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                area.areaDescription = description.isEmpty ? nil : description
+                area.iconName = selectedIcon
+                area.colorHex = selectedColor.hexString
+
+                await viewModel.updateArea(area)
             } else {
-                // Create new habit
-                await viewModel.createHabit(
+                await viewModel.createArea(
                     name: name.trimmingCharacters(in: .whitespacesAndNewlines),
                     description: description.isEmpty ? nil : description,
                     iconName: selectedIcon,
                     colorHex: selectedColor.hexString,
-                    reminderTime: reminderEnabled ? reminderTime : nil,
-                    notificationsEnabled: reminderEnabled,
-                    targetFrequency: targetFrequency
+                    dreamImageName: nil
                 )
             }
-            
+
             dismiss()
         }
     }
-    
-    /// Formats time for display
-    private func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+
+    private var backgroundGradient: some View {
+        TimelineView(.animation(minimumInterval: theme.motion.meshAnimationInterval)) { timeline in
+            MeshGradient(
+                width: 3,
+                height: 3,
+                points: animatedMeshPoints(for: timeline.date),
+                colors: [
+                    selectedColor.opacity(0.15),
+                    theme.palette.secondary.opacity(0.1),
+                    selectedColor.opacity(0.1),
+                    theme.palette.tertiary.opacity(0.15),
+                    selectedColor.opacity(0.2),
+                    theme.palette.primary.opacity(0.1),
+                    selectedColor.opacity(0.1),
+                    theme.palette.secondary.opacity(0.15),
+                    selectedColor.opacity(0.15)
+                ]
+            )
+        }
+        .ignoresSafeArea()
+    }
+
+    private func animatedMeshPoints(for date: Date) -> [SIMD2<Float>] {
+        let time = Float(date.timeIntervalSince1970)
+        let interval = Float(max(theme.motion.meshAnimationInterval, 0.1))
+        let baseSpeed = 1.0 / interval
+        let offset = sin(time * (baseSpeed * 0.5)) * 0.2
+        let offset2 = cos(time * (baseSpeed * 0.35)) * 0.14
+        return [
+            [0.0, 0.0], [0.5 + offset2, 0.0], [1.0, 0.0],
+            [0.0, 0.5], [0.5 + offset, 0.5 - offset], [1.0, 0.5],
+            [0.0, 1.0], [0.5 - offset2, 1.0], [1.0, 1.0]
+        ]
     }
 }
 
-// MARK: - Preview
-
-#Preview("New Habit") {
-    HabitFormView(viewModel: HabitViewModel(), habit: nil)
+#Preview("New Area") {
+    HabitFormView(viewModel: AreaViewModel(), area: nil)
 }
 
-#Preview("Edit Habit") {
-    HabitFormView(viewModel: HabitViewModel(), habit: Habit.sampleHabits[0])
+#Preview("Edit Area") {
+    HabitFormView(viewModel: AreaViewModel(), area: Area.sampleAreas[0])
 }

@@ -101,7 +101,7 @@ struct OnboardingView: View {
     }
     
     private var backgroundGradient: some View {
-        TimelineView(.animation(minimumInterval: 2.5)) { timeline in
+        TimelineView(.animation(minimumInterval: theme.motion.meshAnimationInterval)) { timeline in
             MeshGradient(
                 width: 3,
                 height: 3,
@@ -125,8 +125,10 @@ struct OnboardingView: View {
 
     private func animatedMeshPoints(for date: Date) -> [SIMD2<Float>] {
         let time = Float(date.timeIntervalSince1970)
-        let offset = sin(time * 0.2) * 0.2
-        let offset2 = cos(time * 0.15) * 0.14
+        let interval = Float(max(theme.motion.meshAnimationInterval, 0.1))
+        let baseSpeed = 1.0 / interval
+        let offset = sin(time * (baseSpeed * 0.5)) * 0.2
+        let offset2 = cos(time * (baseSpeed * 0.35)) * 0.14
         return [
             [0.0, 0.0], [0.5 + offset2, 0.0], [1.0, 0.0],
             [0.0, 0.5], [0.5 + offset, 0.5 - offset], [1.0, 0.5],

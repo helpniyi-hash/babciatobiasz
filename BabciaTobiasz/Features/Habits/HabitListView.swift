@@ -6,38 +6,40 @@ import SwiftData
 
 /// Main habit list with management and statistics
 struct HabitListView: View {
-    @Bindable var viewModel: HabitViewModel
+    @Bindable var viewModel: AreaViewModel
     @State private var showStatsTooltip = false
+    @State private var headerProgress: CGFloat = 0
     @Environment(\.dsTheme) private var theme
+    
+    private let heroImageName = "R2_Baroness_Headshot_Neutral"
     
     var body: some View {
         NavigationStack {
             ZStack {
                 backgroundGradient
                 
-                if viewModel.habits.isEmpty && !viewModel.isLoading {
-                    emptyStateView
-                        .transition(.opacity)
-                } else if viewModel.isLoading {
+                if viewModel.isLoading {
                     HabitSkeletonLoadingView()
                         .transition(.opacity)
                 } else {
-                    habitListContent
+                    areasScrollContent
                         .transition(.opacity)
                 }
             }
-            .animation(theme.motion.listSpring, value: viewModel.habits.isEmpty)
-            .navigationTitle("Habits")
+            .animation(theme.motion.listSpring, value: viewModel.areas.isEmpty)
+            .navigationTitle("")
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             #endif
-            .searchable(text: $viewModel.searchText, prompt: "Search habits")
             .toolbar { toolbarContent }
-            .sheet(isPresented: $viewModel.showHabitForm) {
-                HabitFormView(viewModel: viewModel, habit: viewModel.editingHabit)
+            .sheet(isPresented: $viewModel.showAreaForm) {
+                HabitFormView(viewModel: viewModel, area: viewModel.editingArea)
             }
-            .onAppear { viewModel.loadHabits() }
+            .safeAreaInset(edge: .bottom) {
+                areasSearchBar
+            }
+            .onAppear { viewModel.loadAreas() }
             .alert("Error", isPresented: $viewModel.showError) {
                 Button("OK") { viewModel.dismissError() }
             } message: {
@@ -54,15 +56,53 @@ struct HabitListView: View {
     
     // MARK: - Content
     
-    private var habitListContent: some View {
-        ScrollView(showsIndicators: false) {
+    private var areasScrollContent: some View {
+        ScalingHeaderScrollView(
+            maxHeight: 260,
+            minHeight: 120,
+            snapMode: .afterAcceleration,
+            progress: $headerProgress
+        ) { progress in
+            AreasHeroHeader(
+                imageName: heroImageName,
+                progress: progress
+            )
+        } content: {
             VStack(spacing: 20) {
-                statisticsCard
-                filterPicker
-                habitsList
+                if viewModel.habits.isEmpty {
+                    emptyStateView
+                } else {
+                    statisticsCard
+                    filterPicker
+                    habitsList
+                }
             }
             .padding()
         }
+    }
+    
+    private var areasSearchBar: some View {
+        GlassCardView {
+            HStack(spacing: theme.grid.listSpacing) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: theme.grid.iconSmall))
+                    .foregroundStyle(.secondary)
+                
+            TextField(
+                    "",
+                    text: $viewModel.searchText,
+                    prompt: Text("Search areas")
+                        .font(theme.typography.font(.body, weight: .regular, italic: false))
+                        .foregroundStyle(.secondary)
+                )
+                .dsFont(.body)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            }
+            .padding(.vertical, 10)
+        }
+        .padding(.horizontal, theme.grid.cardPadding)
+        .padding(.bottom, 8)
     }
     
     // MARK: - Statistics
@@ -87,7 +127,7 @@ struct HabitListView: View {
                         .animation(theme.motion.statsSpring, value: viewModel.todayCompletionPercentage)
                     
                     VStack(spacing: 2) {
-                        Text("\(viewModel.completedTodayCount)/\(viewModel.totalHabitsCount)")
+                        Text("\(viewModel.completedTodayCount)/\(viewModel.dailyBowlTarget)")
                             .dsFont(.title2, weight: .bold)
                             .contentTransition(.numericText())
                         Text("Today")
@@ -158,7 +198,7 @@ struct HabitListView: View {
     
     private var filterPicker: some View {
         Picker("Filter", selection: $viewModel.filterOption) {
-            ForEach(HabitViewModel.FilterOption.allCases) { option in
+            ForEach(AreaViewModel.FilterOption.allCases) { option in
                 Text(option.rawValue).tag(option)
             }
         }
@@ -172,19 +212,12 @@ struct HabitListView: View {
     
     private var habitsList: some View {
         LazyVStack(spacing: 12) {
-            ForEach(viewModel.filteredHabits) { habit in
-                NavigationLink(destination: HabitDetailView(habit: habit, viewModel: viewModel)) {
-                    HabitRowView(
-                        habit: habit,
-                        onToggleCompletion: {
-                    withAnimation(theme.motion.pressSpring) {
-                        viewModel.toggleCompletion(for: habit)
-                    }
-                }
-            )
+            ForEach(viewModel.filteredAreas) { area in
+                NavigationLink(destination: HabitDetailView(area: area, viewModel: viewModel)) {
+                    HabitRowView(area: area)
                 }
                 .buttonStyle(.plain)
-                .contextMenu { habitContextMenu(for: habit) }
+                .contextMenu { areaContextMenu(for: area) }
                 .scrollTransition { content, phase in
                     content
                         .opacity(phase.isIdentity ? 1 : 0.5)
@@ -196,29 +229,22 @@ struct HabitListView: View {
         .sensoryFeedback(.success, trigger: viewModel.totalCompletions)
     }
     
-    private func habitContextMenu(for habit: Habit) -> some View {
+    private func areaContextMenu(for area: Area) -> some View {
         Group {
             Button {
-                viewModel.toggleCompletion(for: habit)
-                hapticFeedback(.success)
+                viewModel.editArea(area)
+                hapticFeedback(.light)
             } label: {
-                Label(
-                    habit.isCompletedToday ? "Mark Incomplete" : "Mark Complete",
-                    systemImage: habit.isCompletedToday ? "xmark.circle" : "checkmark.circle"
-                )
-            }
-            
-            Button { viewModel.editHabit(habit) } label: {
-                Label("Edit", systemImage: "pencil")
+                Label("Edit Area", systemImage: "pencil")
             }
             
             Divider()
             
             Button(role: .destructive) {
-                viewModel.deleteHabit(habit)
+                viewModel.deleteArea(area)
                 hapticFeedback(.warning)
             } label: {
-                Label("Delete", systemImage: "trash")
+                Label("Delete Area", systemImage: "trash")
             }
         }
     }
@@ -226,52 +252,79 @@ struct HabitListView: View {
     // MARK: - Empty State
     
     private var emptyStateView: some View {
-        VStack(spacing: 24) {
-            Image(systemName: "checklist")
-                .font(.system(size: theme.grid.iconXXL))
-                .foregroundStyle(.secondary)
-            
-            VStack(spacing: 8) {
-                Text("No Habits Yet")
-                    .dsFont(.title2, weight: .bold)
-                
-                Text("Start building good habits by adding your first one!")
-                    .dsFont(.body)
+        GlassCardView {
+            VStack(spacing: 24) {
+                Image(systemName: "checklist")
+                    .font(.system(size: theme.grid.iconXXL))
                     .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+                
+                VStack(spacing: 8) {
+                    Text("No Areas Yet")
+                        .dsFont(.title2, weight: .bold)
+                    
+                    Text("Create your first area to get started.")
+                        .dsFont(.body)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                
+                Button {
+                    viewModel.addNewArea()
+                    hapticFeedback(.medium)
+                } label: {
+                    Label("Add Your First Area", systemImage: "plus.circle.fill")
+                        .dsFont(.headline)
+                }
+                .buttonStyle(.nativeGlassProminent)
             }
-            
-            Button {
-                viewModel.addNewHabit()
-                hapticFeedback(.medium)
-            } label: {
-                Label("Add Your First Habit", systemImage: "plus.circle.fill")
-                    .dsFont(.headline)
-            }
-            .buttonStyle(.nativeGlassProminent)
+            .padding()
         }
-        .padding()
     }
     
     // MARK: - Toolbar
     
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .principal) {
+            Text("Areas")
+                .dsFont(.title2, weight: .bold)
+                .lineLimit(1)
+        }
         ToolbarItem(placement: .primaryAction) {
             Button {
-                viewModel.addNewHabit()
+                viewModel.addNewArea()
                 hapticFeedback(.medium)
             } label: {
                 Image(systemName: "plus.circle.fill")
                     .font(.system(size: theme.grid.iconSmall))
             }
-            .accessibilityLabel("Add new habit")
+            .accessibilityLabel("Add new area")
         }
     }
 }
 
+private struct AreasHeroHeader: View {
+    let imageName: String
+    let progress: CGFloat
+    @Environment(\.dsTheme) private var theme
+
+    var body: some View {
+        let fade = max(CGFloat.zero, CGFloat(1) - progress * CGFloat(1.2))
+        ZStack(alignment: .bottom) {
+            Image(imageName)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity)
+                .padding(.top, theme.grid.sectionSpacing)
+                .opacity(fade)
+        }
+        .frame(maxWidth: .infinity)
+        .animation(.easeOut(duration: 0.2), value: progress)
+    }
+}
+
 #Preview {
-    HabitListView(viewModel: HabitViewModel())
-        .modelContainer(for: Habit.self, inMemory: true)
+    HabitListView(viewModel: AreaViewModel())
+        .modelContainer(for: Area.self, inMemory: true)
         .environment(AppDependencies())
 }
