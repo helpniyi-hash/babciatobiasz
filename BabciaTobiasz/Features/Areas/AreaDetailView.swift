@@ -19,6 +19,14 @@ struct AreaDetailView: View {
     @State private var showCameraCapture = false
     @State private var showCameraAlert = false
     @State private var cameraAlertMessage = ""
+    @State private var showVerificationPrompt = false
+    @State private var showGoldenUnlock = false
+    @State private var showVerificationReady = false
+    @State private var showVerificationCapture = false
+    @State private var showVerificationCelebration = false
+    @State private var verificationTier: BowlVerificationTier = .blue
+    @State private var verificationPassed: Bool = false
+    @State private var verificationBowl: AreaBowl?
 
     var body: some View {
         ZStack {
@@ -35,6 +43,7 @@ struct AreaDetailView: View {
                 VStack(spacing: theme.grid.sectionSpacing) {
                     babciaSparkleCard
                     taskListSection
+                    verificationCallout
                 }
                 .padding()
             }
@@ -60,10 +69,44 @@ struct AreaDetailView: View {
                 }
             )
         }
+        .fullScreenCover(isPresented: $showVerificationCapture) {
+            CameraCaptureView(
+                onCapture: { image in
+                    handleVerificationCapturedImage(image)
+                    showVerificationCapture = false
+                },
+                onCancel: {
+                    showVerificationCapture = false
+                }
+            )
+        }
         .alert("Camera access", isPresented: $showCameraAlert) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(cameraAlertMessage)
+        }
+        .alert("Verify this session?", isPresented: $showVerificationPrompt) {
+            Button("Not now", role: .cancel) { markVerificationPending() }
+            Button("Verify") { beginVerificationFlow() }
+        } message: {
+            Text("Take an after photo to verify and earn bonus points.")
+        }
+        .alert("Golden verification unlocked", isPresented: $showGoldenUnlock) {
+            Button("Continue") { showVerificationReady = true }
+            Button("Not now", role: .cancel) { }
+        } message: {
+            Text("Congrats — you unlocked Golden verification for extra points.")
+        }
+        .alert("ARE YOU READY TO VERIFY HAHAHAH", isPresented: $showVerificationReady) {
+            Button("Start verification") { showVerificationCapture = true }
+            Button("Not now", role: .cancel) { }
+        } message: {
+            Text(verificationReadyMessage)
+        }
+        .alert(verificationCelebrationTitle, isPresented: $showVerificationCelebration) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(verificationCelebrationMessage)
         }
         // Added 2026-01-14 21:13 GMT
         .alert("Error", isPresented: $viewModel.showError) {
@@ -115,6 +158,11 @@ struct AreaDetailView: View {
     private func requestCameraCapture() {
 #if os(iOS)
         // Added 2026-01-14 21:13 GMT
+        if isVerificationDecisionPending {
+            viewModel.errorMessage = "Decide verification before starting a new scan."
+            viewModel.showError = true
+            return
+        }
         if viewModel.isGeneratingDream {
             viewModel.errorMessage = "Dream generation is in progress. Please wait."
             viewModel.showError = true
@@ -261,6 +309,7 @@ struct AreaDetailView: View {
                 viewModel.toggleTaskCompletion(task)
             }
             hapticFeedback(.success)
+            checkForVerificationPrompt()
         } label: {
             HStack {
                 Text(title)
@@ -296,6 +345,39 @@ struct AreaDetailView: View {
         .accessibilityLabel(title)
     }
 
+    // MARK: - Verification Callout
+
+    @ViewBuilder
+    private var verificationCallout: some View {
+        if let bowl = area.latestBowl, bowl.isCompleted, isVerificationDecisionPending {
+            GlassCardView {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Ready to verify?")
+                        .dsFont(.headline, weight: .bold)
+                    Text("Take an after photo to lock in your bonus points.")
+                        .dsFont(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Button {
+                        beginVerificationFlow()
+                    } label: {
+                        Label("Start verification", systemImage: "checkmark.seal.fill")
+                            .dsFont(.headline)
+                    }
+                    .buttonStyle(.nativeGlassProminent)
+                    .padding(.top, 4)
+                    Button {
+                        takeBasePointsOnly()
+                    } label: {
+                        Label("Take base points", systemImage: "checkmark")
+                            .dsFont(.subheadline, weight: .bold)
+                    }
+                    .buttonStyle(.nativeGlass)
+                }
+                .padding()
+            }
+        }
+    }
+
     // MARK: - Floating Action
 
     // Added 2026-01-14 22:02 GMT
@@ -312,6 +394,84 @@ struct AreaDetailView: View {
         .accessibilityLabel("Take photo")
         .padding(.trailing, theme.grid.sectionSpacing)
         .padding(.bottom, theme.grid.sectionSpacing)
+    }
+
+    // MARK: - Verification Flow
+
+    private func checkForVerificationPrompt() {
+        guard let bowl = area.latestBowl else { return }
+        guard bowl.isCompleted, bowl.verificationRequested == false else { return }
+        verificationBowl = bowl
+        showVerificationPrompt = true
+    }
+
+    private var isVerificationDecisionPending: Bool {
+        guard let bowl = area.latestBowl else { return false }
+        return bowl.verificationRequested && bowl.verificationOutcome == .pending
+    }
+
+    private func markVerificationPending() {
+        guard let bowl = verificationBowl ?? area.latestBowl else { return }
+        viewModel.markVerificationDecisionPending(for: bowl)
+    }
+
+    private func takeBasePointsOnly() {
+        guard let bowl = area.latestBowl else { return }
+        viewModel.skipVerification(for: bowl)
+    }
+
+    private func beginVerificationFlow() {
+        verificationTier = viewModel.isGoldenEligible() ? .golden : .blue
+        if verificationTier == .golden {
+            showGoldenUnlock = true
+        } else {
+            showVerificationReady = true
+        }
+    }
+
+    private func handleVerificationCapturedImage(_ image: UIImage) {
+        guard let data = image.jpegData(compressionQuality: 0.85) else {
+            presentCameraAlert("Could not read the captured photo.")
+            return
+        }
+        guard let bowl = verificationBowl else { return }
+        Task {
+            do {
+                let passed = try await viewModel.submitVerification(
+                    for: bowl,
+                    tier: verificationTier,
+                    afterPhotoData: data
+                )
+                verificationPassed = passed
+                hapticFeedback(passed ? .success : .warning)
+                showVerificationCelebration = true
+            } catch {
+                viewModel.errorMessage = error.localizedDescription
+                viewModel.showError = true
+            }
+        }
+    }
+
+    private var verificationCelebrationTitle: String {
+        if verificationPassed {
+            return verificationTier == .golden ? "Golden verification complete" : "Verification complete"
+        }
+        return "Verification needs more work"
+    }
+
+    private var verificationCelebrationMessage: String {
+        if verificationPassed {
+            return verificationTier == .golden
+                ? "Golden bonus added to your pot."
+                : "Bonus points added to your pot."
+        }
+        return "No bonus added this time. Keep going and try again."
+    }
+
+    private var verificationReadyMessage: String {
+        verificationTier == .golden
+            ? "Take a moment to tidy before your Golden after photo."
+            : "Take a moment to tidy before your after photo."
     }
 
     // MARK: - Toolbar
@@ -350,5 +510,5 @@ struct AreaDetailView: View {
     NavigationStack {
         AreaDetailView(area: Area.sampleAreas[0], viewModel: AreaViewModel())
     }
-    .modelContainer(for: [Area.self, AreaBowl.self, CleaningTask.self], inMemory: true)
+    .modelContainer(for: [Area.self, AreaBowl.self, CleaningTask.self, TaskCompletionEvent.self, Session.self, User.self], inMemory: true)
 }

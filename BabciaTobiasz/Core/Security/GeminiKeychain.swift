@@ -1,0 +1,27 @@
+//
+//  GeminiKeychain.swift
+//  BabciaTobiasz
+//
+//  Stores the Gemini API key securely in the Keychain.
+//
+
+import Foundation
+
+enum GeminiKeychain {
+    private static let service = "com.babcia.tobiasz"
+    private static let account = "GEMINI_API_KEY"
+
+    static func load() -> String? {
+        KeychainService.get(service: service, account: account)
+    }
+
+    @discardableResult
+    static func save(_ value: String) -> Bool {
+        KeychainService.set(value, service: service, account: account)
+    }
+
+    @discardableResult
+    static func delete() -> Bool {
+        KeychainService.delete(service: service, account: account)
+    }
+}

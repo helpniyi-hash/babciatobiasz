@@ -60,6 +60,10 @@ final class AreaViewModel {
     private var notificationService: NotificationService?
     // Added 2026-01-14 22:55 GMT
     private var scanPipelineService: BabciaScanPipelineService?
+    private var potService: PotService?
+    private var currentUser: User?
+    private let verificationJudge: VerificationJudgeProtocol
+    private let scoringService: ScoringService
     @ObservationIgnored private let userDefaults = UserDefaults.standard
 
     private enum StorageKeys {
@@ -141,11 +145,19 @@ final class AreaViewModel {
     init(
         persistenceService: PersistenceService? = nil,
         notificationService: NotificationService? = nil,
-        scanPipelineService: BabciaScanPipelineService? = nil
+        scanPipelineService: BabciaScanPipelineService? = nil,
+        potService: PotService? = nil,
+        currentUser: User? = nil,
+        verificationJudge: VerificationJudgeProtocol? = nil,
+        scoringService: ScoringService? = nil
     ) {
         self.persistenceService = persistenceService
         self.notificationService = notificationService
         self.scanPipelineService = scanPipelineService
+        self.potService = potService
+        self.currentUser = currentUser
+        self.verificationJudge = verificationJudge ?? VerificationJudgeService()
+        self.scoringService = scoringService ?? ScoringService()
         loadPersistentState()
     }
     
@@ -155,11 +167,15 @@ final class AreaViewModel {
         persistenceService: PersistenceService,
         notificationService: NotificationService,
         // Added 2026-01-14 22:55 GMT
-        scanPipelineService: BabciaScanPipelineService
+        scanPipelineService: BabciaScanPipelineService,
+        potService: PotService? = nil,
+        currentUser: User? = nil
     ) {
         self.persistenceService = persistenceService
         self.notificationService = notificationService
         self.scanPipelineService = scanPipelineService
+        self.potService = potService
+        self.currentUser = currentUser
     }
 
     private func loadPersistentState() {
@@ -361,12 +377,17 @@ final class AreaViewModel {
         guard let persistenceService = persistenceService else { return }
         do {
             guard let bowl = task.bowl else { return }
-            if task.isCompleted {
-                task.completedAt = nil
-                bowl.basePoints = max(0, bowl.basePoints - task.points)
-            } else {
-                task.completedAt = Date()
-                bowl.basePoints += task.points
+            guard !task.isCompleted else { return }
+            let completionDate = Date()
+            task.completedAt = completionDate
+            bowl.basePoints += task.points
+            recordTaskCompletion(task, bowl: bowl, completionDate: completionDate)
+            if let potService, let currentUser {
+                do {
+                    try potService.addPoints(task.points, to: currentUser)
+                } catch {
+                    handleError(error)
+                }
             }
             updateBowlCompletionState(bowl)
             updateBowlTotals(bowl)
@@ -375,16 +396,106 @@ final class AreaViewModel {
             handleError(error)
         }
     }
-    
+
+    private func recordTaskCompletion(_ task: CleaningTask, bowl: AreaBowl, completionDate: Date) {
+        guard let persistenceService = persistenceService else { return }
+        let calendar = Calendar.current
+        let dayOfWeek = calendar.component(.weekday, from: completionDate)
+        let hourOfDay = calendar.component(.hour, from: completionDate)
+        let areaName = bowl.area?.name ?? ""
+        let personaRaw = bowl.area?.personaRaw ?? BabciaPersona.classic.rawValue
+        let event = TaskCompletionEvent(
+            completedAt: completionDate,
+            dayOfWeek: dayOfWeek,
+            hourOfDay: hourOfDay,
+            taskTitle: task.title,
+            taskPoints: task.points,
+            areaId: bowl.area?.id,
+            areaName: areaName,
+            personaRaw: personaRaw,
+            bowlId: bowl.id
+        )
+        persistenceService.insert(event)
+    }
+
+    /// Judges and applies verification results for a completed bowl.
+    /// - Parameters:
+    ///   - bowl: Bowl to verify.
+    ///   - tier: Verification tier used.
+    ///   - afterPhotoData: JPEG data captured after cleaning.
+    /// - Returns: `true` if verification passed.
+    /// - Throws: `VerificationJudgeError` if judging fails.
+    func submitVerification(
+        for bowl: AreaBowl,
+        tier: BowlVerificationTier,
+        afterPhotoData: Data
+    ) async throws -> Bool {
+        do {
+            guard let persistenceService = persistenceService else {
+                throw VerificationJudgeError.judgingFailed(reason: "Persistence unavailable")
+            }
+            guard let beforePhotoData = bowl.beforePhotoData else {
+                throw VerificationJudgeError.invalidPhotoData
+            }
+            let passed = try await verificationJudge.judge(
+                beforePhoto: beforePhotoData,
+                afterPhoto: afterPhotoData
+            )
+            try applyVerificationResult(
+                to: bowl,
+                tier: tier,
+                passed: passed,
+                afterPhotoData: afterPhotoData,
+                persistenceService: persistenceService
+            )
+            return passed
+        } catch let error as VerificationJudgeError {
+            throw error
+        } catch {
+            throw VerificationJudgeError.judgingFailed(reason: error.localizedDescription)
+        }
+    }
+
     func finalizeVerification(for bowl: AreaBowl, tier: BowlVerificationTier, outcome: BowlVerificationOutcome, afterPhotoData: Data?) {
         guard let persistenceService = persistenceService else { return }
         do {
+            if bowl.verificationRequested == false {
+                bowl.verificationRequested = true
+                bowl.verificationRequestedAt = Date()
+            }
+            let wasVerified = bowl.verifiedAt != nil
             bowl.verificationTier = tier
             bowl.verificationOutcome = outcome
             bowl.verifiedAt = Date()
             if let afterPhotoData {
                 bowl.afterPhotoData = afterPhotoData
             }
+            updateBowlTotals(bowl)
+            try applyPotBonusIfNeeded(for: bowl, wasVerified: wasVerified)
+            try persistenceService.save()
+        } catch {
+            handleError(error)
+        }
+    }
+
+    func markVerificationDecisionPending(for bowl: AreaBowl) {
+        guard let persistenceService = persistenceService else { return }
+        do {
+            bowl.verificationRequested = true
+            bowl.verificationRequestedAt = Date()
+            bowl.verificationOutcome = .pending
+            updateBowlTotals(bowl)
+            try persistenceService.save()
+        } catch {
+            handleError(error)
+        }
+    }
+
+    func skipVerification(for bowl: AreaBowl) {
+        guard let persistenceService = persistenceService else { return }
+        do {
+            bowl.verificationRequested = false
+            bowl.verificationOutcome = .skipped
             updateBowlTotals(bowl)
             try persistenceService.save()
         } catch {
@@ -540,19 +651,26 @@ extension AreaViewModel {
 
     /// PRD v1.0: Golden eligibility is DETERMINISTIC (NOT random).
     /// Eligible if:
-    /// - (no successful verification in last 7 days) OR
+    /// - (no successful verification in last 3 days) OR
     /// - (completed bowls today < daily target)
     func isGoldenEligible() -> Bool {
         let calendar = Calendar.current
-        let sevenDaysAgo = calendar.date(byAdding: .day, value: -7, to: Date()) ?? Date.distantPast
-        let hasRecentSuccess = areas
+        let lastVerifiedAt = areas
             .compactMap { $0.bowls }
             .flatMap { $0 }
-            .contains { bowl in
-                guard bowl.verificationOutcome == .passed, let verifiedAt = bowl.verifiedAt else { return false }
-                return verifiedAt >= sevenDaysAgo
-            }
-        return !hasRecentSuccess || bowlsCompletedTodayCount < dailyBowlTarget
+            .filter { $0.verificationOutcome == .passed }
+            .compactMap { $0.verifiedAt }
+            .sorted(by: >)
+            .first
+
+        let daysSinceLastVerification: Int
+        if let lastVerifiedAt {
+            daysSinceLastVerification = calendar.dateComponents([.day], from: lastVerifiedAt, to: Date()).day ?? 0
+        } else {
+            daysSinceLastVerification = Int.max
+        }
+
+        return daysSinceLastVerification >= 3 || bowlsCompletedTodayCount < dailyBowlTarget
     }
 
     private func updateBowlCompletionState(_ bowl: AreaBowl) {
@@ -565,24 +683,74 @@ extension AreaViewModel {
         }
     }
 
-    /// PRD v1.0: Scoring rules.
-    /// Base points earned immediately per task tick (default 1 each).
-    /// No verify keeps base only (1×).
-    /// Blue: pass 4×base, fail 2.5×base
-    /// Golden: pass 10×base, fail 5.5×base
+    /// Applies verification scoring to update total points.
     private func updateBowlTotals(_ bowl: AreaBowl) {
-        let base = Double(bowl.basePoints)
-        let multiplier: Double
         switch bowl.verificationOutcome {
         case .passed:
-            multiplier = bowl.verificationTier == .golden ? 10 : 4
+            let totals = scoreBowlTotals(for: bowl, passed: true)
+            bowl.bonusMultiplier = totals.bonusMultiplier
+            bowl.totalPoints = Double(totals.totalPoints)
         case .failed:
-            multiplier = bowl.verificationTier == .golden ? 5.5 : 2.5
+            let totals = scoreBowlTotals(for: bowl, passed: false)
+            bowl.bonusMultiplier = totals.bonusMultiplier
+            bowl.totalPoints = Double(totals.totalPoints)
         case .pending, .skipped:
-            multiplier = 1
+            bowl.bonusMultiplier = 1
+            bowl.totalPoints = Double(bowl.basePoints)
         }
-        bowl.bonusMultiplier = multiplier
-        bowl.totalPoints = base * multiplier
+    }
+
+    private func scoreBowlTotals(for bowl: AreaBowl, passed: Bool) -> (totalPoints: Int, bonusMultiplier: Double) {
+        guard bowl.basePoints > 0 else {
+            return (0, 1)
+        }
+        guard let area = bowl.area, let tier = mapVerificationTier(bowl.verificationTier) else {
+            return (bowl.basePoints, 1)
+        }
+        let session = Session(area: area, basePoints: bowl.basePoints)
+        scoringService.applyVerificationBonus(to: session, tier: tier, passed: passed)
+        let totalPoints = session.totalPoints
+        let bonusMultiplier = Double(totalPoints) / Double(bowl.basePoints)
+        return (totalPoints, bonusMultiplier)
+    }
+
+    private func mapVerificationTier(_ tier: BowlVerificationTier) -> VerificationTier? {
+        switch tier {
+        case .blue:
+            return .blue
+        case .golden:
+            return .golden
+        case .none:
+            return nil
+        }
+    }
+
+    private func applyVerificationResult(
+        to bowl: AreaBowl,
+        tier: BowlVerificationTier,
+        passed: Bool,
+        afterPhotoData: Data,
+        persistenceService: PersistenceService
+    ) throws {
+        if bowl.verificationRequested == false {
+            bowl.verificationRequested = true
+            bowl.verificationRequestedAt = Date()
+        }
+        let wasVerified = bowl.verifiedAt != nil
+        bowl.verificationTier = tier
+        bowl.verificationOutcome = passed ? .passed : .failed
+        bowl.verifiedAt = Date()
+        bowl.afterPhotoData = afterPhotoData
+        updateBowlTotals(bowl)
+        try applyPotBonusIfNeeded(for: bowl, wasVerified: wasVerified)
+        try persistenceService.save()
+    }
+
+    private func applyPotBonusIfNeeded(for bowl: AreaBowl, wasVerified: Bool) throws {
+        guard !wasVerified, let potService, let currentUser else { return }
+        let bonusPoints = max(0, Int(bowl.totalPoints) - bowl.basePoints)
+        guard bonusPoints > 0 else { return }
+        try potService.addPoints(bonusPoints, to: currentUser)
     }
 
     private func genericTaskTemplates() -> [String] {

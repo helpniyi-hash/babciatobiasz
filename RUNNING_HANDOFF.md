@@ -238,6 +238,7 @@ Last Updated
 - 2026-01-15 08:04 GMT: App launched on device (PID 11930). Awaiting user verification that the tester page no longer crashes (it was removed).
 - 2026-01-15 08:06 GMT: Restored tester page as a minimal Liquid Glass Lab (buttons + clear sheet only) to avoid recursion crash; re-added Settings entry. Build/test pending.
 - 2026-01-15 08:09 GMT: Clean build + device build succeeded; app installed and launched on device (PID 11952). Awaiting user verification of the minimal tester page (buttons + clear sheet).
+- 2026-01-15 14:15 GMT: Codex core logic added (Session/User/Scoring/Pot/Golden/HomeData). swift test failed because /Users/Shared/Developer/BabciaTobiasz/Package.swift has arguments out of order (products must precede dependencies). No device build/test run.
 
 Working Style (How we work together)
 - Do not touch files without explicit user permission. If asked to report only, report only.
@@ -362,3 +363,74 @@ Update 2026-01-15 08:34 GMT
 Update 2026-01-15 08:35 GMT
 - Clean build + device build succeeded.
 - App installed and launched on device (PID 12009). Awaiting user verification of 2% glass tint.
+
+Update 2026-01-15 (Claude Code)
+- CRITICAL REQUIREMENTS LOCKED:
+  - iOS 26.2 / Swift 6+ (strict concurrency, MainActor by default)
+  - Use Apple Docs MCP + WebSearch for modern patterns
+  - NO Frankenstein apps, NO god files, modular everything
+  - Best practices everywhere, NO hardcoding, Design System only
+  - NO quick fixes, NO laziness
+
+- CAMERA FLOW CLARIFIED:
+  - Camera tab → snap picture → creates NEW AREA
+  - Area Detail page → camera button (bottom right) → replaces Dream image + creates NEW tasks
+  - All tasks checked off → asks "verify?"
+  - If yes → MAYBE shows "congrats, gold verify!" (eligibility-dependent)
+
+- USER CHOOSES BABCIA PER AREA (already in code, confirmed)
+- Dream fallback art: defined in LocalDreamPrompts.json
+- Liquid Glass reference: https://github.com/conorluddy/LiquidGlassReference
+
+- DELEGATION FILES CREATED:
+  - GEMINI_DELEGATION.md (AI task generation service)
+  - CODEX_DELEGATION.md (Session model, scoring, Pot, Golden eligibility, Home data)
+
+- PHASE 1 TASKS (READY TO EXECUTE):
+  1. Build Home dashboard hub (replace WeatherView with DS cards)
+  2. Wire AI task generation service (Gemini)
+  3. Implement points-per-task-tick scoring (immediate Pot updates)
+  4. Wire Golden eligibility (deterministic, no randomness)
+  5. Device build + test on ilovepoxmox
+
+Update 2026-01-15 (Claude Code - Phase 1.1 COMPLETE)
+- ✅ HomeViewModel created (fetches dashboard data: Pot, Streak, Daily Progress, Lifetime Pierogis, Latest Dream)
+- ✅ Home card components created (6 cards): PotCard, StreakCard, DailyProgressCard, ShopCard, StatsCard, LatestDreamCard
+- ✅ HomeView created (NavigationStack + ScrollView with DS cards, matches WeatherView aesthetic)
+- ✅ HomeInsightCard added (educates users on scan → Dream → points → filters → Gallery)
+- ✅ MainTabView updated (HomeView replaces WeatherView on Home tab)
+- ✅ All cards use GlassCardView, .dsFont(), theme tokens, .scrollTransition (no hardcoding)
+- 🚧 **WAITING FOR CODEX** to finish Session model + User model + PotService + ScoringService + GoldenEligibilityService
+- ⏭️ NEXT: After Codex completes → fix HomeViewModel FetchDescriptor syntax → device build/test on ilovepoxmox
+- 2026-01-15 14:35 GMT: Pre-build update: HomeView preview now uses HomeDataService + User; preparing to run tests/build now that Codex logic is merged.
+- 2026-01-15 14:36 GMT: swift test failed on mac host because DreamRoomEngine imports UIKit; proceeding with clean + device build for verification.
+- 2026-01-15 14:38 GMT: Clean build succeeded. Device build succeeded for ilovepoxmox (install/run still pending).
+- 2026-01-15 14:39 GMT: App installed and launched on device (com.babcia.tobiasz). Awaiting user verification of Home dashboard + task/points flow.
+- 2026-01-15 14:44 GMT: Task completion is now one-way (no un-tick). Updated AreaViewModel to ignore completed tasks.
+- 2026-01-15 14:51 GMT: Added verify prompt when tasks complete; Golden unlock alert (eligibility-based) and after-photo capture; verification now finalizes as passed with tier.
+- 2026-01-15 14:53 GMT: Clean build + device build succeeded; app installed and launched on ilovepoxmox. Awaiting user verification of new verification flow.
+- 2026-01-15 15:01 GMT: Fixed verification prompt to use latest bowl (not inProgressBowl) so it triggers after final task completion.
+- 2026-01-15 15:02 GMT: Clean build + device build succeeded; app installed and launched on ilovepoxmox. Awaiting verification prompt + Golden unlock behavior.
+- 2026-01-15 15:14 GMT: Added small verification celebration alert (Golden vs Blue) after after-photo capture; placeholder for future custom animation.
+- 2026-01-15 15:15 GMT: Clean build + device build succeeded; app installed and launched on ilovepoxmox. Awaiting user check of celebration alert copy.
+- 2026-01-15 15:20 GMT: Added “Get ready to tidy” pause before after-photo capture; Golden unlock now funnels into the same ready step.
+- 2026-01-15 15:21 GMT: Clean build + device build succeeded; app installed and launched on ilovepoxmox. Awaiting user verification of “Get ready to tidy” pause.
+- 2026-01-15 15:29 GMT: Updated ready prompt copy to “ARE YOU READY TO VERIFY HAHAHAH”, added verify callout card when bowl completes, and bonus points now apply on verification (one-time).
+- 2026-01-15 15:31 GMT: Clean build + device build succeeded; app installed and launched on ilovepoxmox. Awaiting user check of new verification copy + CTA.
+- 2026-01-15 15:37 GMT: “Not now” now locks new scans by marking verification pending; added verify callout with “Start verification” + “Take base points”; camera blocked until decision.
+- 2026-01-15 15:39 GMT: Clean build + device build succeeded; app installed and launched on ilovepoxmox. Awaiting user verification of lock/decision flow.
+
+
+## 2026-01-15 Update
+- Gallery: real grid view (no shop placeholder). Tap image -> Area Detail.
+- Home: Sklep card pushes FilterShopView; Latest Dream card pushes Gallery.
+- Analytics: TaskCompletionEvent model added; logged on task completion (dayOfWeek, hour, area, persona, bowl, task).
+- Build: device build/install/launch OK after SF Symbol fix (bowl.fill -> fork.knife).
+- Verification: one-way tasks, verify prompt, golden unlock, ready prompt; AI judge still not wired.
+
+## 2026-01-15 19:16 GMT
+- Added VerificationJudgeService with Gemini API 2.5 integration.
+- Added GeminiKeychain for secure API key storage.
+- Wired judge into AreaDetailViewModel verification flow.
+- Added 6 unit tests covering success/failure paths.
+- Device build succeeded on ilovepoxmox; device tests failed to install the test runner due to free profile app limit.
