@@ -21,8 +21,7 @@ struct AreaDetailView: View {
     @State private var cameraAlertMessage = ""
     @State private var showReminderPrompt = false
     @State private var cameraFlowViewModel = CameraFlowViewModel()
-    @State private var showVerificationPrompt = false
-    @State private var showGoldenUnlock = false
+    @State private var showPierogiDrop = false
     @State private var showVerificationReady = false
     @State private var showVerificationCapture = false
     @State private var showVerificationCelebration = false
@@ -100,21 +99,16 @@ struct AreaDetailView: View {
         } message: {
             Text(cameraAlertMessage)
         }
-        .alert("Verify this session?", isPresented: $showVerificationPrompt) {
-            Button("Not now", role: .cancel) { markVerificationPending() }
-            Button("Verify") { beginVerificationFlow() }
-        } message: {
-            Text("Take an after photo to verify and earn bonus points.")
-        }
-        .alert("Golden verification unlocked", isPresented: $showGoldenUnlock) {
-            Button("Continue") { showVerificationReady = true }
-            Button("Not now", role: .cancel) { }
-        } message: {
-            Text("Congrats — you unlocked Golden verification for extra points.")
+        .fullScreenCover(isPresented: $showPierogiDrop) {
+            PierogiDropView(tier: verificationTier) { tier in
+                verificationTier = tier
+                showPierogiDrop = false
+                showVerificationReady = true
+            }
         }
         .alert("Ready to Verify?", isPresented: $showVerificationReady) {
             Button("Start verification") { showVerificationCapture = true }
-            Button("Not now", role: .cancel) { }
+            Button("Not now", role: .cancel) { markVerificationPending() }
         } message: {
             Text(verificationReadyMessage)
         }
@@ -432,8 +426,10 @@ struct AreaDetailView: View {
     private func checkForVerificationPrompt() {
         guard let bowl = area.latestBowl else { return }
         guard bowl.isCompleted, bowl.verificationRequested == false else { return }
+        guard showPierogiDrop == false else { return }
         verificationBowl = bowl
-        showVerificationPrompt = true
+        verificationTier = viewModel.isGoldenEligible() ? .golden : .blue
+        showPierogiDrop = true
     }
 
     private var isVerificationDecisionPending: Bool {
@@ -453,11 +449,7 @@ struct AreaDetailView: View {
 
     private func beginVerificationFlow() {
         verificationTier = viewModel.isGoldenEligible() ? .golden : .blue
-        if verificationTier == .golden {
-            showGoldenUnlock = true
-        } else {
-            showVerificationReady = true
-        }
+        showVerificationReady = true
     }
 
     private func handleVerificationCapturedImage(_ image: UIImage) {

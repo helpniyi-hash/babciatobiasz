@@ -86,6 +86,21 @@
 // MARK: - Reminders
 "reminder_default_body" = "Time to complete a bowl.";
 
+// MARK: - Pierogi Drop
+"pierogi_drop_title" = "Drop the pierogis into the pot";
+"pierogi_drop_subtitle" = "Feed all five to reveal your tier.";
+"pierogi_drop_progress" = "%d of %d dropped";
+
+// MARK: - Shortcuts
+"shortcut_start_scan_title" = "Start Scan";
+"shortcut_start_scan_description" = "Open the Babcia tab to begin a scan.";
+"shortcut_open_areas_title" = "Open Areas";
+"shortcut_open_areas_description" = "Jump to your list of areas.";
+"shortcut_start_scan_phrase_1" = "Start a scan in \(.applicationName)";
+"shortcut_start_scan_phrase_2" = "Open a scan in \(.applicationName)";
+"shortcut_open_areas_phrase_1" = "Open areas in \(.applicationName)";
+"shortcut_open_areas_phrase_2" = "Show areas in \(.applicationName)";
+
 // MARK: - Statistics
 "stats_best_streak" = "Best Streak";
 "stats_total_done" = "Total Done";

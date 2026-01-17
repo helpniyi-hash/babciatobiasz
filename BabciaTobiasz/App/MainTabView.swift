@@ -9,6 +9,7 @@ import Foundation
 struct MainTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.appDependencies) private var dependencies
+    @AppStorage(AppIntentRoute.storageKey) private var appIntentRoute: String = AppIntentRoute.none.rawValue
     
     @State private var viewModel = MainTabViewModel()
     @State private var homeViewModel: HomeViewModel?
@@ -43,9 +44,15 @@ struct MainTabView: View {
             }
         }
         .tabViewStyle(.sidebarAdaptable)
-        .onAppear { setupViewModels() }
+        .onAppear {
+            setupViewModels()
+            handleIntentRoute(appIntentRoute)
+        }
         .onChange(of: viewModel.selectedTab) { _, _ in
             hapticFeedback(.selection)
+        }
+        .onChange(of: appIntentRoute) { _, newValue in
+            handleIntentRoute(newValue)
         }
         .onReceive(NotificationCenter.default.publisher(for: .areaReminderTapped)) { notification in
             if let areaId = notification.userInfo?["areaId"] as? UUID {
@@ -82,6 +89,25 @@ struct MainTabView: View {
             currentUser: currentUser,
             progressionService: dependencies.services.progression
         )
+    }
+
+    private func handleIntentRoute(_ routeValue: String) {
+        guard let route = AppIntentRoute(rawValue: routeValue), route != .none else { return }
+        switch route {
+        case .home:
+            viewModel.selectedTab = .home
+        case .areas:
+            viewModel.selectedTab = .areas
+        case .babcia, .startScan:
+            viewModel.selectedTab = .babcia
+        case .gallery:
+            viewModel.selectedTab = .gallery
+        case .settings:
+            viewModel.selectedTab = .settings
+        case .none:
+            break
+        }
+        appIntentRoute = AppIntentRoute.none.rawValue
     }
 }
 

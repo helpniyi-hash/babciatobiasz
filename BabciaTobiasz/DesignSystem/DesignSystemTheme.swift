@@ -74,6 +74,10 @@ struct DSGrid {
     var detailCardHeightLarge: CGFloat
     var heroHeaderCollapsedHeight: CGFloat
     var heroCardHeight: CGFloat
+    var pierogiSize: CGFloat
+    var pierogiEmojiScale: CGFloat
+    var pierogiPotSize: CGFloat
+    var pierogiPotGrowStep: CGFloat
 }
 
 enum DSGlassStrength {
@@ -96,6 +100,8 @@ struct DSGlass {
     var strength: DSGlassStrength
     var prominentStrength: DSGlassStrength
     var tintOpacity: Double
+    var glowOpacityHigh: Double
+    var glowOpacityLow: Double
 }
 
 enum DSMotionPreset: String, CaseIterable {
@@ -306,12 +312,18 @@ extension DesignSystemTheme {
             detailCardHeightSmall: 120,
             detailCardHeightLarge: 150,
             heroHeaderCollapsedHeight: 120,
-            heroCardHeight: 260
+            heroCardHeight: 260,
+            pierogiSize: 60,
+            pierogiEmojiScale: 2.2,
+            pierogiPotSize: 140,
+            pierogiPotGrowStep: 6
         ),
         glass: DSGlass(
             strength: .regular,
             prominentStrength: .thin,
-            tintOpacity: 0.02
+            tintOpacity: 0.02,
+            glowOpacityHigh: 0.7,
+            glowOpacityLow: 0.2
         )
     )
 }

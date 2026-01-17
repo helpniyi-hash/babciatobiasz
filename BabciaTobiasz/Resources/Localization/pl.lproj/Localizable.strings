@@ -14,6 +14,21 @@
 // MARK: - Reminders
 "reminder_default_body" = "Czas na ukończenie miski.";
 
+// MARK: - Pierogi Drop
+"pierogi_drop_title" = "Wrzuć pierogi do garnka";
+"pierogi_drop_subtitle" = "Nakarm wszystkie pięć, by poznać poziom.";
+"pierogi_drop_progress" = "%d z %d wrzucone";
+
+// MARK: - Shortcuts
+"shortcut_start_scan_title" = "Rozpocznij skan";
+"shortcut_start_scan_description" = "Otwórz zakładkę Babcia, aby zacząć skan.";
+"shortcut_open_areas_title" = "Otwórz obszary";
+"shortcut_open_areas_description" = "Przejdź do listy obszarów.";
+"shortcut_start_scan_phrase_1" = "Rozpocznij skan w \(.applicationName)";
+"shortcut_start_scan_phrase_2" = "Otwórz skan w \(.applicationName)";
+"shortcut_open_areas_phrase_1" = "Otwórz obszary w \(.applicationName)";
+"shortcut_open_areas_phrase_2" = "Pokaż obszary w \(.applicationName)";
+
 // MARK: - Milestones (Classic Babcia)
 "milestone.classic.day1" = "Oj, wróciłeś. Coś z tego będzie.";
 "milestone.classic.day3" = "Może jednak mnie nie zawiedziesz.";
