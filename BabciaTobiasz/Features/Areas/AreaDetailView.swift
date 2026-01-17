@@ -162,14 +162,18 @@ struct AreaDetailView: View {
             Image(uiImage: uiImage)
                 .resizable()
                 .scaledToFill()
-        } else if let name = area.dreamImageName {
-            Image(name)
+        } else if let name = area.dreamImageName,
+                  let uiImage = UIImage(named: name) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFill()
+        } else if let fallbackImage = UIImage(named: "DreamRoom_Test_1200x1600") {
+            Image(uiImage: fallbackImage)
                 .resizable()
                 .scaledToFill()
         } else {
-            Image("DreamRoom_Test_1200x1600")
-                .resizable()
-                .scaledToFill()
+            Rectangle()
+                .fill(.clear)
         }
     }
 

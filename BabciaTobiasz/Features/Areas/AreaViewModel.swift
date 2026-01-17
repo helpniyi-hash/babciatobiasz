@@ -652,7 +652,11 @@ final class AreaViewModel {
         }
         pendingReminderAreaId = areaId
         navigationPath = NavigationPath()
-        navigationPath.append(areaId)
+        navigationPath.append(AreaRoute.detail(areaId))
+    }
+
+    func openArea(_ areaId: UUID) {
+        navigationPath.append(AreaRoute.detail(areaId))
     }
 
     func consumeReminderPrompt(for areaId: UUID) -> Bool {

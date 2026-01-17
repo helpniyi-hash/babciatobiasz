@@ -46,11 +46,14 @@ struct AreaListView: View {
                 Text(viewModel.errorMessage ?? "An error occurred")
             }
         }
-        .navigationDestination(for: UUID.self) { areaId in
-            if let area = viewModel.area(for: areaId) {
-                AreaDetailView(area: area, viewModel: viewModel)
-            } else {
-                Text("Area not found")
+        .navigationDestination(for: AreaRoute.self) { route in
+            switch route {
+            case .detail(let areaId):
+                if let area = viewModel.area(for: areaId) {
+                    AreaDetailView(area: area, viewModel: viewModel)
+                } else {
+                    Text("Area not found")
+                }
             }
         }
     }
@@ -245,7 +248,7 @@ struct AreaListView: View {
             ForEach(items, id: \.element.id) { index, area in
                 let stackScale = 1 - min(Double(index) * 0.02, 0.08)
                 Button {
-                    viewModel.navigationPath.append(area.id)
+                    viewModel.openArea(area.id)
                     hapticFeedback(.selection)
                 } label: {
                     AreaRowView(area: area, milestone: viewModel.milestone(for: area))
