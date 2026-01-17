@@ -244,7 +244,10 @@ struct AreaListView: View {
         return LazyVStack(spacing: -overlap) {
             ForEach(items, id: \.element.id) { index, area in
                 let stackScale = 1 - min(Double(index) * 0.02, 0.08)
-                NavigationLink(value: area.id) {
+                Button {
+                    viewModel.navigationPath.append(area.id)
+                    hapticFeedback(.selection)
+                } label: {
                     AreaRowView(area: area, milestone: viewModel.milestone(for: area))
                 }
                 .buttonStyle(.plain)
